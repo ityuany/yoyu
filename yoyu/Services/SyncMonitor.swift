@@ -12,7 +12,7 @@ final class SyncMonitor {
     var checking = false
     private var activeEvents: Set<UUID> = []
     private var observer: NSObjectProtocol?
-    static let containerID = "iCloud.devplaceholder.Y3VZXX26.yoyu"
+    static let containerID = "iCloud.com.ityuany.yoyu"
 
     init() {
         observer = NotificationCenter.default.addObserver(forName: NSPersistentCloudKitContainer.eventChangedNotification, object: nil, queue: .main) { [weak self] notification in
