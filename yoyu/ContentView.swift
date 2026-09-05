@@ -1,21 +1,40 @@
 import SwiftUI
+import SwiftData
 
 @main struct yoyuApp: App {
+    private let storage = AppStorageController()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if let container = storage.container {
+                ContentView()
+                    .modelContainer(container)
+                    .environment(storage.sync)
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else {
+                ContentUnavailableView("无法打开本机数据", systemImage: "externaldrive.badge.exclamationmark", description: Text(storage.errorMessage ?? "请重新启动应用后重试。"))
+            }
         }
     }
 }
 
 struct ContentView: View {
-    @State private var selectedTab: AppTab = .today
+    @State private var selectedTab: AppTab = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
+        #endif
+        return .today
+    }()
 
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    Color.clear
+                    if tab == .profile {
+                        ProfileView()
+                    } else {
+                        Color.clear
+                    }
                 }
             }
         }
@@ -51,4 +70,6 @@ private enum AppTab: CaseIterable, Identifiable {
 
 #Preview {
     ContentView()
+        .modelContainer(for: [UserProfile.self, WorkdayOverride.self], inMemory: true)
+        .environment(SyncMonitor())
 }
