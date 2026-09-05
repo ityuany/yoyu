@@ -29,8 +29,13 @@ enum ProfileRules {
         String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
+    /// Upper bound for stored money, in cents: 1000 亿元.
+    static let maximumMoneyCents: Int64 = 100_000_000_000_00
+    /// Upper bound for stored percentages, in basis points: 100%.
+    static let maximumPercentBasisPoints: Int64 = 10_000
+
     // Fixed-point storage avoids binary floating point rounding for money and percentages.
-    static func scaledValue(_ text: String, maximum: Int64 = 100_000_000_000_00) -> Int64? {
+    static func scaledValue(_ text: String, maximum: Int64 = ProfileRules.maximumMoneyCents) -> Int64? {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard clean.range(of: #"^[0-9]+(\.[0-9]{1,2})?$"#, options: .regularExpression) != nil,
               let decimal = Decimal(string: clean, locale: Locale(identifier: "en_US_POSIX")),
@@ -42,8 +47,6 @@ enum ProfileRules {
         guard let value else { return "" }
         return NSDecimalNumber(decimal: Decimal(value) / 100).stringValue
     }
-
-    static let maximumMoneyCents: Int64 = 100_000_000_000_00
 
     /// Shares are stored in hundredths; price and resulting market value are in cents.
     static func stockValue(sharesHundredths: Int64?, priceCents: Int64?) -> Int64? {
@@ -60,7 +63,7 @@ enum ProfileRules {
         guard clean.range(of: #"^-?[0-9]+(\.[0-9]{1,2})?$"#, options: .regularExpression) != nil else { return nil }
         let negative = clean.hasPrefix("-")
         let magnitude = negative ? String(clean.dropFirst()) : clean
-        guard let value = scaledValue(magnitude, maximum: 10_000) else { return nil }
+        guard let value = scaledValue(magnitude, maximum: maximumPercentBasisPoints) else { return nil }
         return negative ? -value : value
     }
 
@@ -68,6 +71,55 @@ enum ProfileRules {
         guard let value else { return "待填写" }
         return (Decimal(value) / 100).formatted(.currency(code: "CNY").locale(Locale(identifier: "zh_CN")))
     }
+}
+
+/// Gregorian weekday numbers, matching `Calendar.component(.weekday:)` where Sunday is 1.
+enum Weekday: Int, CaseIterable, Identifiable {
+    case sunday = 1, monday, tuesday, wednesday, thursday, friday, saturday
+
+    var id: Int { rawValue }
+
+    var name: String {
+        switch self {
+        case .sunday: "周日"
+        case .monday: "周一"
+        case .tuesday: "周二"
+        case .wednesday: "周三"
+        case .thursday: "周四"
+        case .friday: "周五"
+        case .saturday: "周六"
+        }
+    }
+
+    /// Weekday of `date` in mainland China's calendar.
+    init(_ date: Date) {
+        self.init(rawValue: ProfileRules.calendar.component(.weekday, from: date))!
+    }
+
+    /// Week-listing order used in the UI, starting on Monday.
+    static let displayOrder: [Weekday] = [.monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday]
+}
+
+/// A regular weekly schedule. Stored as a bit mask indexed by `Weekday.rawValue`.
+struct Workweek: Equatable {
+    /// Monday through Friday.
+    static let `default` = Workweek(mask: 62)
+
+    var mask: Int
+
+    init(mask: Int) {
+        self.mask = mask
+    }
+
+    func contains(_ weekday: Weekday) -> Bool {
+        mask & Self.bit(weekday) != 0
+    }
+
+    mutating func set(_ weekday: Weekday, isWorkday: Bool) {
+        if isWorkday { mask |= Self.bit(weekday) } else { mask &= ~Self.bit(weekday) }
+    }
+
+    private static func bit(_ weekday: Weekday) -> Int { 1 << (weekday.rawValue - 1) }
 }
 
 struct Holiday: Identifiable {
@@ -108,11 +160,10 @@ enum HolidaySchedule {
         return nil
     }
 
-    static func workday(_ date: Date, weekMask: Int, followsHolidays: Bool, override: Bool?) -> (isWorkday: Bool, reason: String) {
+    static func workday(_ date: Date, workweek: Workweek, followsHolidays: Bool, override: Bool?) -> (isWorkday: Bool, reason: String) {
         if let override { return (override, "个人调整") }
         if followsHolidays, let official = officialDay(date) { return official }
-        let weekday = ProfileRules.calendar.component(.weekday, from: date)
-        let isWorkday = weekMask & (1 << (weekday - 1)) != 0
+        let isWorkday = workweek.contains(Weekday(date))
         let unknown = followsHolidays && ProfileRules.calendar.component(.year, from: date) != supportedYear
         return (isWorkday, unknown ? "按常规安排估算，未包含该年节假日及调休" : "每周常规安排")
     }

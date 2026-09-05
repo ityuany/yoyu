@@ -3,7 +3,7 @@ import SwiftData
 
 struct WorkdayOverridesView: View {
     @Query(sort: \WorkdayOverride.modifiedAt, order: .reverse) private var overrides: [WorkdayOverride]
-    let weekMask: Int
+    let workweek: Workweek
     let followsHolidays: Bool
     @Environment(\.modelContext) private var context
     @State private var date = Date()
@@ -13,7 +13,7 @@ struct WorkdayOverridesView: View {
     private var dateKey: String { ProfileRules.dateKey(date) }
     private var selectedOverride: WorkdayOverride? { overrides.first { $0.dateKey == dateKey } }
     private var result: (isWorkday: Bool, reason: String) {
-        HolidaySchedule.workday(date, weekMask: weekMask,
+        HolidaySchedule.workday(date, workweek: workweek,
                                 followsHolidays: followsHolidays,
                                 override: selectedOverride?.isWorkday)
     }
@@ -58,9 +58,7 @@ struct WorkdayOverridesView: View {
         .navigationTitle("特殊日期调整")
         .onAppear(perform: loadSelection)
         .onChange(of: dateKey) { _, _ in loadSelection() }
-        .alert("未能保存", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("好", role: .cancel) {}
-        } message: { Text(errorMessage ?? "") }
+        .saveErrorAlert($errorMessage)
     }
 
     private func loadSelection() {
@@ -70,7 +68,6 @@ struct WorkdayOverridesView: View {
         // Remove all matching rows, including any independently created on another device.
         for item in overrides where item.dateKey == dateKey { context.delete(item) }
         if choice != "默认" { context.insert(WorkdayOverride(dateKey: dateKey, isWorkday: choice == "上班")) }
-        do { try context.save() }
-        catch { context.rollback(); errorMessage = error.localizedDescription }
+        errorMessage = context.saveOrRollback()
     }
 }

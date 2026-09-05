@@ -21,6 +21,9 @@ struct ProfilePersistenceTests {
             profile.stockCents = 20002
             profile.basicUpdatedAt = Date()
             profile.wealthUpdatedAt = Date()
+            precondition(profile.workweek == .default)
+            profile.workweek.set(.saturday, isWorkday: true)
+            precondition(profile.workweekMask == 126, "workweek must write through to stored mask")
             context.insert(profile)
             context.insert(WorkdayOverride(dateKey: "2026-09-20", isWorkday: false))
             try context.save()
@@ -41,6 +44,8 @@ struct ProfilePersistenceTests {
             precondition(profiles[0].stockValueCents == 20002)
             precondition(profiles[0].stockSharesHundredths == nil)
             precondition(profiles[0].investmentAnnualReturnBasisPoints == nil)
+            precondition(profiles[0].workweekMask == 126)
+            precondition(profiles[0].workweek.contains(.saturday) && !profiles[0].workweek.contains(.sunday))
             profiles[0].stockSharesHundredths = 10000
             profiles[0].stockPriceCents = 1234
             profiles[0].investmentAnnualReturnBasisPoints = -250

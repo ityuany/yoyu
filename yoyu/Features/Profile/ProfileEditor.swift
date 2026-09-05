@@ -18,7 +18,7 @@ private struct ProfileDraft {
     var legacyStockCents: Int64?
     var investment = ""
     var annualReturn = ""
-    var workweekMask = 62
+    var workweek = Workweek.default
     var startMinutes = 540
     var endMinutes = 1080
     var followsHolidays = true
@@ -43,7 +43,7 @@ private struct ProfileDraft {
         }
         investment = ProfileRules.input(profile.investmentCents)
         annualReturn = ProfileRules.input(profile.investmentAnnualReturnBasisPoints)
-        workweekMask = profile.workweekMask
+        workweek = profile.workweek
         startMinutes = profile.startMinutes
         endMinutes = profile.endMinutes
         followsHolidays = profile.followsHolidays
@@ -57,7 +57,6 @@ struct ProfileEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: ProfileDraft
     @State private var errorMessage: String?
-    private let weekdays = [(2, "周一"), (3, "周二"), (4, "周三"), (5, "周四"), (6, "周五"), (7, "周六"), (1, "周日")]
 
     init(section: ProfileSection, profile: UserProfile?) {
         self.section = section
@@ -85,9 +84,7 @@ struct ProfileEditor: View {
                     Button("保存", action: save).disabled(validationError != nil)
                 }
             }
-            .alert("未能保存", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-                Button("好", role: .cancel) {}
-            } message: { Text(errorMessage ?? "") }
+            .saveErrorAlert($errorMessage)
         }
     }
 
@@ -181,13 +178,11 @@ struct ProfileEditor: View {
     private var workFields: some View {
         Group {
             Section("常规工作日") {
-                ForEach(weekdays, id: \.0) { weekday, name in
-                    Toggle(name, isOn: Binding(get: {
-                        draft.workweekMask & (1 << (weekday - 1)) != 0
-                    }, set: { selected in
-                        if selected { draft.workweekMask |= 1 << (weekday - 1) }
-                        else { draft.workweekMask &= ~(1 << (weekday - 1)) }
-                    }))
+                ForEach(Weekday.displayOrder) { weekday in
+                    Toggle(weekday.name, isOn: Binding(
+                        get: { draft.workweek.contains(weekday) },
+                        set: { draft.workweek.set(weekday, isWorkday: $0) }
+                    ))
                 }
             }
             Section {
@@ -198,7 +193,7 @@ struct ProfileEditor: View {
             Section {
                 Toggle("跟随国家节假日及调休", isOn: $draft.followsHolidays)
                 NavigationLink("查看官方调休安排") { HolidayScheduleView() }
-                NavigationLink("特殊日期调整") { WorkdayOverridesView(weekMask: draft.workweekMask, followsHolidays: draft.followsHolidays) }
+                NavigationLink("特殊日期调整") { WorkdayOverridesView(workweek: draft.workweek, followsHolidays: draft.followsHolidays) }
             } footer: {
                 Text("个人调整优先，其次是官方放假和补班安排，最后使用常规工作日。特殊日期调整单独保存。")
             }
@@ -263,7 +258,10 @@ struct ProfileEditor: View {
         case .work:
             return draft.startMinutes == draft.endMinutes ? "上下班时间不能相同。" : nil
         case .employment:
-            fields = [("基本薪资", draft.salary, 100_000_000_000_00), ("养老金比例", draft.pension, 10_000), ("公积金比例", draft.housing, 10_000), ("年终奖金", draft.bonus, 100_000_000_000_00)]
+            fields = [("基本薪资", draft.salary, ProfileRules.maximumMoneyCents),
+                      ("养老金比例", draft.pension, ProfileRules.maximumPercentBasisPoints),
+                      ("公积金比例", draft.housing, ProfileRules.maximumPercentBasisPoints),
+                      ("年终奖金", draft.bonus, ProfileRules.maximumMoneyCents)]
         case .wealth:
             if hasStockDetails {
                 guard ProfileRules.scaledValue(draft.stockShares) != nil else { return "请填写有效的持股数量，最多两位小数且不超过 1000 亿股。" }
@@ -273,11 +271,14 @@ struct ProfileEditor: View {
             if !draft.annualReturn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ProfileRules.annualReturnRate(draft.annualReturn) == nil {
                 return "年化收益率请输入 -100—100，最多两位小数。"
             }
-            fields = [("现金", draft.cash, 100_000_000_000_00), ("理财", draft.investment, 100_000_000_000_00)]
+            fields = [("现金", draft.cash, ProfileRules.maximumMoneyCents),
+                      ("理财", draft.investment, ProfileRules.maximumMoneyCents)]
         }
         for (name, text, maximum) in fields where !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if ProfileRules.scaledValue(text, maximum: maximum) == nil {
-                return maximum == 10_000 ? "\(name)请输入 0—100，最多两位小数。" : "\(name)请输入有效的非负金额，最多两位小数且不超过 1000 亿元。"
+                return maximum == ProfileRules.maximumPercentBasisPoints
+                    ? "\(name)请输入 0—100，最多两位小数。"
+                    : "\(name)请输入有效的非负金额，最多两位小数且不超过 1000 亿元。"
             }
         }
         return nil
@@ -311,12 +312,11 @@ struct ProfileEditor: View {
             record.investmentAnnualReturnBasisPoints = ProfileRules.annualReturnRate(draft.annualReturn)
         case .work:
             record.workUpdatedAt = Date()
-            record.workweekMask = draft.workweekMask
+            record.workweek = draft.workweek
             record.startMinutes = draft.startMinutes
             record.endMinutes = draft.endMinutes
             record.followsHolidays = draft.followsHolidays
         }
-        do { try context.save(); dismiss() }
-        catch { context.rollback(); errorMessage = error.localizedDescription }
+        if let message = context.saveOrRollback() { errorMessage = message } else { dismiss() }
     }
 }

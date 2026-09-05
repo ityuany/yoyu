@@ -91,15 +91,16 @@ struct ProfileView: View {
                     NavigationLink(value: "holidays") {
                         Label("调休安排", systemImage: "calendar.badge.clock")
                     }
-                } footer: { Text("查看当年国务院办公厅公布的节假日及补班安排。") }
-
-                Section("数据管理") {
                     NavigationLink {
                         SyncStatusView()
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
+                        HStack {
                             Label("iCloud 同步", systemImage: "icloud")
-                            Text(sync.accountMessage).font(.caption).foregroundStyle(.secondary)
+                            Spacer(minLength: 8)
+                            Text(sync.accountMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
                         }
                     }
                 }

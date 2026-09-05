@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HolidayScheduleView: View {
     private let year = ProfileRules.calendar.component(.year, from: Date())
-    private let weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
 
     var body: some View {
         List {
@@ -30,8 +29,8 @@ struct HolidayScheduleView: View {
                         } else {
                             ForEach(holiday.makeup.indices, id: \.self) { index in
                                 let makeup = holiday.makeup[index]
-                                let weekday = ProfileRules.calendar.component(.weekday, from: ProfileRules.date(year, makeup.month, makeup.day))
-                                dayRow(badge: "班", text: "\(makeup.month) 月 \(makeup.day) 日（\(weekdayNames[weekday - 1])）", color: .orange)
+                                let weekday = Weekday(ProfileRules.date(year, makeup.month, makeup.day))
+                                dayRow(badge: "班", text: "\(makeup.month) 月 \(makeup.day) 日（\(weekday.name)）", color: .orange)
                             }
                         }
                     }

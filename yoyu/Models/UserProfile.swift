@@ -23,7 +23,7 @@ final class UserProfile {
     var stockPriceCents: Int64?
     var investmentCents: Int64?
     var investmentAnnualReturnBasisPoints: Int64?
-    var workweekMask: Int = 62
+    var workweekMask: Int = Workweek.default.mask
     var startMinutes: Int = 540
     var endMinutes: Int = 1080
     var followsHolidays: Bool = true
@@ -62,6 +62,12 @@ final class WorkdayOverride {
 }
 
 extension UserProfile {
+    /// Regular weekly schedule backed by `workweekMask`.
+    var workweek: Workweek {
+        get { Workweek(mask: workweekMask) }
+        set { workweekMask = newValue.mask }
+    }
+
     func updatedAt(for section: ProfileSection) -> Date {
         switch section {
         case .basic: basicUpdatedAt ?? .distantPast
