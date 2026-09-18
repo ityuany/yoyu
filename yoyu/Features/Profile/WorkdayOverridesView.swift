@@ -54,7 +54,7 @@ struct WorkdayOverridesView: View {
                     }
                 }
             }
-        }
+        }.neutralPageBackground()
         .navigationTitle("特殊日期调整")
         .onAppear(perform: loadSelection)
         .onChange(of: dateKey) { _, _ in loadSelection() }

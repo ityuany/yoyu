@@ -48,7 +48,7 @@ struct HolidayScheduleView: View {
                     Link("前往中国政府网", destination: URL(string: "https://www.gov.cn/")!)
                 }
             }
-        }
+        }.neutralPageBackground()
         .navigationTitle("调休安排")
         #if os(iOS)
         .toolbar(.visible, for: .navigationBar)

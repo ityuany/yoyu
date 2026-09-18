@@ -5,6 +5,7 @@ private struct ProfileDraft {
     var birthYear: Int?
     var birthMonth: Int?
     var gender = ""
+    var femaleRetirementAge: Int?
     var hasHireDate = false
     var hireDate = Date()
     var salary = ""
@@ -28,6 +29,7 @@ private struct ProfileDraft {
         birthYear = profile.birthYear
         birthMonth = profile.birthMonth
         gender = profile.gender
+        femaleRetirementAge = profile.femaleRetirementAge
         hasHireDate = profile.hireDate != nil
         hireDate = profile.hireDate ?? Date()
         salary = ProfileRules.input(profile.salaryCents)
@@ -50,15 +52,25 @@ private struct ProfileDraft {
     }
 }
 
+enum WealthEditScope: String, Identifiable {
+    case cash, investment
+    var id: String { rawValue }
+    var title: String { self == .cash ? "更新现金余额" : "更新理财资产" }
+}
+
 struct ProfileEditor: View {
+    var wealthScope: WealthEditScope?
     let section: ProfileSection
     let profile: UserProfile?
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query private var stocks: [StockHolding]
+    @Environment(CareerClock.self) private var clock
     @State private var draft: ProfileDraft
     @State private var errorMessage: String?
 
-    init(section: ProfileSection, profile: UserProfile?) {
+    init(section: ProfileSection, profile: UserProfile?, wealthScope: WealthEditScope? = nil) {
+        self.wealthScope = wealthScope
         self.section = section
         self.profile = profile
         _draft = State(initialValue: ProfileDraft(profile))
@@ -69,15 +81,15 @@ struct ProfileEditor: View {
             Form {
                 switch section {
                 case .basic: basicFields
-                case .employment: employmentFields
+                case .employment: Text("请在企业履历中编辑薪资待遇。")
                 case .wealth: wealthFields
-                case .work: workFields
+                case .work: Text("请在企业履历中编辑工作安排。")
                 }
                 if let validationError {
                     Section { Text(validationError).foregroundStyle(.red) }
                 }
-            }
-            .navigationTitle(section.rawValue)
+            }.neutralPageBackground()
+            .navigationTitle(wealthScope?.title ?? section.rawValue)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -111,91 +123,44 @@ struct ProfileEditor: View {
                 } label: {
                     LabeledContent("性别", value: draft.gender.isEmpty ? "请选择" : draft.gender)
                 }
-            } footer: {
-                Text("出生年月和性别为必填项，用于计算预计退休年月。")
-            }
-            Section {
-                LabeledContent("预计退休年月", value: retirement)
-            } footer: {
-                Text("按男性 63 岁、女性 58 岁推算。这是应用的预测口径，修改出生年月或性别后自动更新。")
-            }
-        }
-    }
-
-    private var employmentFields: some View {
-        Group {
-            Section("入职时间") {
-                Toggle("填写入职时间", isOn: $draft.hasHireDate)
-                if draft.hasHireDate { DatePicker("入职日期", selection: $draft.hireDate, displayedComponents: .date) }
-            }
-            Section {
-                numberField("基本薪资", text: $draft.salary, unit: "元/月")
-                numberField("养老金比例", text: $draft.pension, unit: "%")
-                numberField("公积金比例", text: $draft.housing, unit: "%")
-            } header: { Text("薪资待遇") } footer: {
-                Text("基本薪资填写税前月薪；养老金和公积金仅填写个人缴纳比例。留空表示尚未填写，0 表示没有。")
-            }
-            Section("年终奖金") {
-                numberField("奖金数额", text: $draft.bonus, unit: "元")
-                Picker("发放月份", selection: $draft.bonusMonth) {
-                    ForEach(1...12, id: \.self) { Text("\($0) 月").tag($0) }
+                if draft.gender == "女" {
+                    Picker("原法定退休年龄", selection: $draft.femaleRetirementAge) {
+                        Text("请选择").tag(nil as Int?)
+                        Text("50 岁类别").tag(50 as Int?)
+                        Text("55 岁类别").tag(55 as Int?)
+                    }
                 }
+                LabeledContent("法定退休年月", value: retirement)
+            } footer: {
+                Text("按中国大陆普通职工渐进式延迟退休规则计算。女性需选择原法定退休年龄类别；不含特殊工种等提前退休情形。")
             }
         }
     }
 
     private var wealthFields: some View {
         Group {
-            Section("现金") {
-                numberField("现金", text: $draft.cash, unit: "元")
+            if wealthScope != .investment {
+                Section("现金") { numberField("当前余额", text: $draft.cash, unit: "元") }
             }
-            Section {
-                numberField("持股数量", text: $draft.stockShares, unit: "股")
-                numberField("单股价格", text: $draft.stockPrice, unit: "元/股")
-                LabeledContent("股票市值", value: ProfileRules.money(stockValue))
-                if let legacy = draft.legacyStockCents, !hasStockDetails {
-                    Text("沿用此前填写的金额 \(ProfileRules.money(legacy))，补齐数量和单价后自动重新计算。")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button("清除旧股票金额", role: .destructive) { draft.legacyStockCents = nil }
-                }
-            } header: { Text("股票") } footer: {
-                Text("市值 = 持股数量 × 单股价格。修改任一项时实时更新，金额四舍五入到分；数量和单价最多支持两位小数。")
+            if wealthScope == nil {
+            Section("股票") {
+                LabeledContent("已归属价值", value: ProfileRules.money(stockValue))
+                Text("股票与归属计划请在当前财富详情中单独管理。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+            }
+            if wealthScope != .cash {
             Section {
                 numberField("当前金额", text: $draft.investment, unit: "元")
                 numberField("年化收益率", text: $draft.annualReturn, unit: "%", allowsNegative: true)
             } header: { Text("理财") } footer: {
                 Text("年化收益率按百分比填写，例如 3.5 表示 3.5%，支持负值。收益率单独保存，当前财富仍按当前金额汇总。")
             }
+            }
             Section {
-                LabeledContent("合计", value: ProfileRules.money(wealthTotal))
+                if wealthScope == nil { LabeledContent("合计", value: ProfileRules.money(wealthTotal)) }
             } footer: {
                 Text("未填写的项目不参与汇总，0 表示没有。")
-            }
-        }
-    }
-
-    private var workFields: some View {
-        Group {
-            Section("常规工作日") {
-                ForEach(Weekday.displayOrder) { weekday in
-                    Toggle(weekday.name, isOn: Binding(
-                        get: { draft.workweek.contains(weekday) },
-                        set: { draft.workweek.set(weekday, isWorkday: $0) }
-                    ))
-                }
-            }
-            Section {
-                DatePicker("上班时间", selection: timeBinding(start: true), displayedComponents: .hourAndMinute)
-                DatePicker("下班时间", selection: timeBinding(start: false), displayedComponents: .hourAndMinute)
-                if draft.endMinutes < draft.startMinutes { Text("下班时间为次日").font(.caption).foregroundStyle(.secondary) }
-            } header: { Text("工作时段") }
-            Section {
-                Toggle("跟随国家节假日及调休", isOn: $draft.followsHolidays)
-                NavigationLink("查看官方调休安排") { HolidayScheduleView() }
-                NavigationLink("特殊日期调整") { WorkdayOverridesView(workweek: draft.workweek, followsHolidays: draft.followsHolidays) }
-            } footer: {
-                Text("个人调整优先，其次是官方放假和补班安排，最后使用常规工作日。特殊日期调整单独保存。")
             }
         }
     }
@@ -215,30 +180,13 @@ struct ProfileEditor: View {
         } label: { Text(title) }
     }
 
-    private func timeBinding(start: Bool) -> Binding<Date> {
-        Binding(get: {
-            let minutes = start ? draft.startMinutes : draft.endMinutes
-            return Calendar.current.date(from: DateComponents(year: 2001, month: 1, day: 1, hour: minutes / 60, minute: minutes % 60))!
-        }, set: { date in
-            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-            let minutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-            if start { draft.startMinutes = minutes } else { draft.endMinutes = minutes }
-        })
-    }
-
     private var retirement: String {
-        guard let year = draft.birthYear, let month = draft.birthMonth, let age = ProfileRules.retirementAge(gender: draft.gender) else { return "请先填写出生年月与性别" }
-        return "\(year + age) 年 \(month) 月"
-    }
-    private var hasStockDetails: Bool {
-        !draft.stockShares.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-        !draft.stockPrice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        ProfileRules.statutoryRetirement(year: draft.birthYear, month: draft.birthMonth, gender: draft.gender, femaleAge: draft.femaleRetirementAge)
     }
     private var stockValue: Int64? {
-        guard hasStockDetails else { return draft.legacyStockCents }
-        return ProfileRules.stockValue(sharesHundredths: ProfileRules.scaledValue(draft.stockShares),
-                                       priceCents: ProfileRules.scaledValue(draft.stockPrice))
+        StockRules.portfolio(stocks, profile: profile, on: clock.now)
     }
+    /// 将已填写的现金、股票和理财金额求和，空字段不纳入汇总。
     private var wealthTotal: Int64? {
         let values = [ProfileRules.scaledValue(draft.cash), stockValue, ProfileRules.scaledValue(draft.investment)].compactMap { $0 }
         return values.isEmpty ? nil : values.reduce(0, +)
@@ -253,26 +201,16 @@ struct ProfileEditor: View {
             }
             let now = ProfileRules.calendar.dateComponents([.year, .month], from: Date())
             guard (1900...now.year!).contains(year), (1...12).contains(month) else { return "请选择有效的出生年月。" }
+            // 把年月映射为总月份数，便于直接比较是否晚于当前月份。
             if year * 12 + month > now.year! * 12 + now.month! { return "出生年月不能晚于当前月份。" }
             return nil
-        case .work:
-            return draft.startMinutes == draft.endMinutes ? "上下班时间不能相同。" : nil
-        case .employment:
-            fields = [("基本薪资", draft.salary, ProfileRules.maximumMoneyCents),
-                      ("养老金比例", draft.pension, ProfileRules.maximumPercentBasisPoints),
-                      ("公积金比例", draft.housing, ProfileRules.maximumPercentBasisPoints),
-                      ("年终奖金", draft.bonus, ProfileRules.maximumMoneyCents)]
+        case .work, .employment:
+            return "请在企业履历中编辑。"
         case .wealth:
-            if hasStockDetails {
-                guard ProfileRules.scaledValue(draft.stockShares) != nil else { return "请填写有效的持股数量，最多两位小数且不超过 1000 亿股。" }
-                guard ProfileRules.scaledValue(draft.stockPrice) != nil else { return "请填写有效的单股价格，最多两位小数且不超过 1000 亿元。" }
-                if stockValue == nil { return "股票市值不能超过 1000 亿元。" }
-            }
-            if !draft.annualReturn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ProfileRules.annualReturnRate(draft.annualReturn) == nil {
+            if wealthScope != .cash && !draft.annualReturn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ProfileRules.annualReturnRate(draft.annualReturn) == nil {
                 return "年化收益率请输入 -100—100，最多两位小数。"
             }
-            fields = [("现金", draft.cash, ProfileRules.maximumMoneyCents),
-                      ("理财", draft.investment, ProfileRules.maximumMoneyCents)]
+            fields = wealthScope == .cash ? [("现金", draft.cash, ProfileRules.maximumMoneyCents)] : wealthScope == .investment ? [("理财", draft.investment, ProfileRules.maximumMoneyCents)] : [("现金", draft.cash, ProfileRules.maximumMoneyCents), ("理财", draft.investment, ProfileRules.maximumMoneyCents)]
         }
         for (name, text, maximum) in fields where !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if ProfileRules.scaledValue(text, maximum: maximum) == nil {
@@ -294,28 +232,16 @@ struct ProfileEditor: View {
             record.birthYear = draft.birthYear
             record.birthMonth = draft.birthMonth
             record.gender = draft.gender
-        case .employment:
-            record.employmentUpdatedAt = Date()
-            record.hireDate = draft.hasHireDate ? draft.hireDate : nil
-            record.salaryCents = ProfileRules.scaledValue(draft.salary)
-            record.pensionBasisPoints = ProfileRules.scaledValue(draft.pension)
-            record.housingBasisPoints = ProfileRules.scaledValue(draft.housing)
-            record.bonusCents = ProfileRules.scaledValue(draft.bonus)
-            record.bonusMonth = draft.bonusMonth
+            record.femaleRetirementAge = draft.femaleRetirementAge
         case .wealth:
             record.wealthUpdatedAt = Date()
-            record.cashCents = ProfileRules.scaledValue(draft.cash)
-            record.stockSharesHundredths = ProfileRules.scaledValue(draft.stockShares)
-            record.stockPriceCents = ProfileRules.scaledValue(draft.stockPrice)
-            record.stockCents = hasStockDetails ? nil : draft.legacyStockCents
-            record.investmentCents = ProfileRules.scaledValue(draft.investment)
-            record.investmentAnnualReturnBasisPoints = ProfileRules.annualReturnRate(draft.annualReturn)
-        case .work:
-            record.workUpdatedAt = Date()
-            record.workweek = draft.workweek
-            record.startMinutes = draft.startMinutes
-            record.endMinutes = draft.endMinutes
-            record.followsHolidays = draft.followsHolidays
+            if wealthScope != .investment { record.cashCents = ProfileRules.scaledValue(draft.cash) }
+            if wealthScope != .cash {
+                record.investmentCents = ProfileRules.scaledValue(draft.investment)
+                record.investmentAnnualReturnBasisPoints = ProfileRules.annualReturnRate(draft.annualReturn)
+            }
+        case .work, .employment:
+            return
         }
         if let message = context.saveOrRollback() { errorMessage = message } else { dismiss() }
     }

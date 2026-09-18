@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 @main struct yoyuApp: App {
-    private let storage = AppStorageController()
+    @UIApplicationDelegateAdaptor(PhoneOrientationDelegate.self) private var orientationDelegate
+    @State private var storage = AppStorageController()
 
     var body: some Scene {
         WindowGroup {
@@ -11,6 +12,12 @@ import SwiftData
                     .modelContainer(container)
                     .environment(storage.sync)
                     .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else if storage.errorMessage == nil {
+                VStack(spacing: 20) {
+                    ProgressView("正在准备数据…")
+                    Button("先使用本地数据") { storage.continueLocally() }
+                }
+                .task { await storage.start() }
             } else {
                 ContentUnavailableView("无法打开本机数据", systemImage: "externaldrive.badge.exclamationmark", description: Text(storage.errorMessage ?? "请重新启动应用后重试。"))
             }
@@ -18,30 +25,83 @@ import SwiftData
     }
 }
 
-struct ContentView: View {
-    @State private var selectedTab: AppTab = {
+@Observable final class CareerClock {
+    var now = Date()
+}
+
+enum WealthDestination: Hashable {
+    case debtExample
+    case stocks
+    case holding(String)
+}
+
+@Observable final class AppNavigation {
+    var selectedTab: AppTab = {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--wealth") { return .wealth }
         if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
         #endif
         return .today
     }()
+    var wealthPath: NavigationPath = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--debt-example") { return NavigationPath([WealthDestination.debtExample]) }
+        #endif
+        return NavigationPath()
+    }()
+
+    func openStocks(holdingID: String? = nil) {
+        var path = NavigationPath()
+        path.append(WealthDestination.stocks)
+        if let holdingID { path.append(WealthDestination.holding(holdingID)) }
+        wealthPath = path
+        selectedTab = .wealth
+    }
+}
+
+struct ContentView: View {
+    @State private var careerClock = CareerClock()
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var navigation = AppNavigation()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $navigation.selectedTab) {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    if tab == .profile {
+                    if tab == .today {
+                        TodayView()
+                    } else if tab == .wealth {
+                        WealthView()
+                    } else if tab == .profile {
                         ProfileView()
                     } else {
-                        Color.clear
+                        NavigationStack {
+                            DashboardStyle.background
+                                .ignoresSafeArea()
+                                .dashboardTabRoot(title: tab.title)
+                        }
                     }
                 }
+            }
+        }
+        .tint(DashboardStyle.accent)
+        .scrollBounceBehavior(.basedOnSize, axes: .vertical)
+        .environment(careerClock)
+        .environment(navigation)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { careerClock.now = Date() }
+        }
+        .task {
+            // 页面保持打开或从后台恢复时，也刷新按生效日期读取的当前待遇。
+            while !Task.isCancelled {
+                careerClock.now = Date()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
             }
         }
     }
 }
 
-private enum AppTab: CaseIterable, Identifiable {
+enum AppTab: CaseIterable, Identifiable {
     case today
     case wealth
     case forecast

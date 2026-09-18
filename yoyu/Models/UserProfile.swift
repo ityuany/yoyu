@@ -3,6 +3,9 @@ import SwiftData
 
 @Model
 final class UserProfile {
+    var careerMigrated: Bool = false
+    var stockMigrated: Bool = false
+    var femaleRetirementAge: Int?
     var createdAt: Date = Date()
     var basicUpdatedAt: Date?
     var employmentUpdatedAt: Date?
@@ -31,8 +34,7 @@ final class UserProfile {
     init() {}
 
     var retirement: String {
-        guard let birthYear, let birthMonth, let age = ProfileRules.retirementAge(gender: gender) else { return "待完善" }
-        return "\(birthYear + age) 年 \(birthMonth) 月"
+        ProfileRules.statutoryRetirement(year: birthYear, month: birthMonth, gender: gender, femaleAge: femaleRetirementAge)
     }
 
     var stockValueCents: Int64? {
@@ -45,6 +47,7 @@ final class UserProfile {
 
     var totalWealth: Int64? {
         guard cashCents != nil || stockValueCents != nil || investmentCents != nil else { return nil }
+        // 未填写的资产不等同于错误，汇总时按 0 处理；三个项目都未填才不显示总额。
         return (cashCents ?? 0) + (stockValueCents ?? 0) + (investmentCents ?? 0)
     }
 }

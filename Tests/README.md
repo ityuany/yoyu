@@ -22,7 +22,7 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild \
   -configuration Debug CODE_SIGNING_ALLOWED=NO build
 ```
 
-Debug 构建可传 `--profile` 直接打开「我的」，附加 `--holidays` 查看调休详情，或 `--edit 基本信息`（也支持「企业信息」「工作安排」「当前财富」）查看编辑页。Release 不使用这些参数。
+Debug 构建可传 `--profile` 直接打开「我的」，附加 `--detail 基本信息` 查看资料详情（也支持「企业信息」「工作安排」「当前财富」），`--holidays` 查看调休详情，或 `--edit 基本信息`（也支持「企业信息」「工作安排」「当前财富」）查看编辑页。Release 不使用这些参数。
 
 ## iCloud 验证条件
 
@@ -31,3 +31,199 @@ Debug 构建可传 `--profile` 直接打开「我的」，附加 `--holidays` �
 模拟器未登录 iCloud，已验证离线启动；跨设备导入、导出和生产环境 schema 尚未验证。发布前需在开发者账户配置容器、部署 CloudKit schema 到生产环境并用两台登录同一 Apple 账户的设备验证同步。
 
 2026 年官方节假日已内置，可离线查看；新年份需随应用数据更新。在未收录年份，界面明确提示并按常规工作日估算，不沿用 2026 年安排。
+
+## 企业履历验证
+
+新增任职与薪资阶段使用独立 SwiftData 模型，仍进入同一 CloudKit 私有容器。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/Career.swift \
+  Tests/CareerTests.swift -o /tmp/yoyu-career-tests
+/tmp/yoyu-career-tests
+```
+
+测试覆盖旧资料导入及幂等、未知生效日期保留、磁盘重新打开、未来调薪生效边界、同日阶段冲突、任职区间重叠、修改任职区间时保护薪资阶段、CloudKit 重复业务 ID 归并，以及普通职工渐进式延迟退休的年月边界。测试使用临时数据库，不访问用户资料或 iCloud。
+
+手动验证：基本信息 → 当前企业 → 查看任职详情；企业履历 → 添加/编辑任职；薪资阶段 → 新增/修改 → 保存或取消。工作安排包含工作日、上下班时间及每段任职独立的“遵循法定节假日及调休”开关，新旧任职默认开启。离职后无当前任职时，快捷入口引导管理企业履历。
+
+旧资料保留在原模型中作为兼容数据，用户界面的任职、薪资、工作安排统一使用新模型；导入标记与新记录在同一次保存中提交。迁移采用稳定业务 ID，跨设备同源导入在读取时归并。出现多段未结束任职时不任意选择当前企业，显示待处理提示。离职日期包含当天的薪资区间，但记录已离职即归入历史任职。
+
+法定退休年月按中国大陆普通职工规则计算，女性需选择原法定退休年龄 50 岁或 55 岁类别；不覆盖特殊工种等提前退休情形，也不代表养老金领取资格。规则来源：https://www.npc.gov.cn/npc/c2/c30834/202409/t20240914_439634.html
+
+新模型的真实跨设备同步仍需两台登录同一 Apple 账户的设备验证；本地测试不代表已完成 CloudKit 端到端验证。
+
+任职概览卡片直接展示月薪、含首尾日的自然日在职天数，以及税前累计工资估算。累计按各阶段月薪和当月自然日折算，不含年终奖；缺少日期、薪资覆盖或同日阶段冲突时显示待补全。CareerTests 另覆盖闰年整月、月中调薪、统计截止日、跨月舍入、单日任职与缺失资料。
+
+企业工作安排按同一任职区间统计应工作天数及平均日薪（累计税前工资除以应工作天数，不含年终奖）。节假日复用当前内置的 2026 年安排；其他年份明确提示按周安排估算。测试覆盖默认开启、开关持久化、放假与补班、关闭后的周安排、零工作日和缺失薪资/年份。
+
+## 今日收入
+
+「今日」复用当前任职的薪资阶段、每周工作日及节假日开关，按班次归属日的月薪除以该月应工作日，再按整段上下班时长累计；不扣午休、不含奖金。月中调薪逐日取当日薪资，跨夜班次在零点后延续并归入开班日。收入为按时间派生的估算，无新增持久化流水。月内薪资缺口时本月总额显示待补全；未收录年份显示节假日估算说明。此口径用于今日进度，不是法定工资结算公式，也与履历页按自然日估算总工资的用途不同。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/Career.swift \
+  yoyu/Models/TodayIncome.swift Tests/TodayIncomeTests.swift -o /tmp/yoyu-today-tests
+/tmp/yoyu-today-tests
+```
+
+测试覆盖每秒增长、上下班边界、下班后封顶、休息日、整月总额、月中调薪、缺失生效日期及月内薪资、零工作日、节假日补班、未知年份与跨夜班次。页面可见且应用活跃时每秒刷新，后台不依赖定时累加，返回后直接从当前时间恢复。
+
+Debug 可传 `--today-at 2026-09-11T12:00:00+08:00` 预览工作中状态，页面明确显示预览标记；时间按秒前进，不修改系统时间和业务资料。正常启动不传参数，Release 不使用此参数。
+
+## 股票与归属计划
+
+每只股票使用 StockHolding（SwiftData + 同一 CloudKit 私有容器）保存名称、手动股价及更新时间、币种、人民币折算汇率、基准日持股和归属计划。计划以 Codable Data 保存在所属股票记录内，编辑草稿只在保存时整体写入。基准日后的计划在指定日期（上海时区当天零点）按日期推导已归属数量，读取不会写回或重复增加。当前财富仅汇总已归属价值；未归属参考价值独立显示。支持 CNY/HKD/USD，外币手动汇率最多四位小数。
+
+旧 UserProfile 股票字段保留；通过“补全原有股票与归属信息”显式转换后不再重复汇总。旧数量作为基准已归属持股预填，只有金额的记录要求补充股数和价格，不反推数量。新股票采用稳定迁移 ID，读取归并 CloudKit 同源重复记录。持股变化、实际延期、取消计划均需用户手动修正；不处理买卖流水、限售、税费或自动行情。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/EquityGrant.swift yoyu/Models/StockHolding.swift \
+  Tests/StockTests.swift -o /tmp/yoyu-stock-tests
+/tmp/yoyu-stock-tests
+```
+
+测试覆盖归属日零点边界、重复读取幂等、三项价值、财富仅计已归属、汇率、旧值去重、金额上限、损坏计划、回滚及重新打开数据库。真实 CloudKit 跨设备同步仍需已登录同一账户的设备验证。
+
+
+## 按企业管理股票授予
+
+企业详情新增股票激励入口，财富页新增操作先选择当前或历史任职。StockHolding 新增 employmentID、grantData 与 disposalData，仍存于 SwiftData + CloudKit 私有库。每份 grantData 存储独立授予批次、总量及各期计划；同企业价格共用。未安排数量计入未归属，取消的期数保留记录但不再计值。减少持仓记录仅扣除已归属持股，不改变授予历史。旧 vestingData 自动作为“原有归属计划”读取，首次编辑批次后写入新格式，保留原始数据。旧股票不按名字猜公司，需要明确关联。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/EquityGrant.swift \
+  yoyu/Models/StockHolding.swift Tests/EquityTests.swift -o /tmp/yoyu-equity-tests
+/tmp/yoyu-equity-tests
+```
+
+覆盖授予与归属上限、未安排数量、到期边界、取消、持仓扣除不改历史、月末周期生成及旧记录兼容。跨设备编辑同一公司的计划采用整份公司记录同步，真实多设备同步仍待验证。
+
+新增授予仅填写公司、批次和归属计划，无需股价。公司总览统一设置股价；priceIsConfigured 区分未设置与明确的零价格，既有记录默认保留已配置状态。未设置时股数可计算，金额和财富汇总保持待补全。EquityTests 覆盖无股价保存、股数、零价格、后续计值与状态持久化。
+
+## 补偿资产
+
+财富页在「资产明细」中展示「补偿」，与现金、股票、理财并列，默认 N+1：N × 补偿月薪基数 + 额外一个月工资。N 根据当前企业入职日期按上海自然日计算，整年后剩余不足半年计 0.5、满半年计 1。工资暂按当前税前月薪，可独立调整补偿基数、N 和额外一个月工资，详情页只读，右上角「编辑」进入统一编辑页选择 N、N+1、2N，不再提供自定义金额入口；编辑实时预览，保存才生效，取消保留原方案。2N 按 N × 补偿月薪基数 × 2 计算，不叠加额外一个月工资，并在乘 2 后统一按分舍入。缺少任职、工龄或工资时不推断为零；历史自定义金额保留读取兼容；改选三种标准方案后使用工龄与工资测算。
+
+补偿直接计入财富页总资产与四类资产占比，详情不再展示资产对比。未知类别遵循现有已知资产汇总口径，未填写项暂不计入并提示；股票价格缺失仍阻止总额显示。StockTests 覆盖补偿计入合计、仅有补偿、零值、缺失值、缺失股价与溢出。补偿方案以 Codable Data 存入 Employment.severanceData，继续使用 SwiftData + CloudKit 私有数据库；编辑取消不写入，保存失败回滚。旧任职记录自动采用默认 N+1，损坏的方案数据提示重新设置。工龄和当前资产随当天日期重新推导，换企业后采用新任职自己的方案。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/Career.swift \
+  yoyu/Models/Severance.swift Tests/SeveranceTests.swift -o /tmp/yoyu-severance-tests
+/tmp/yoyu-severance-tests
+```
+
+验证包含工龄半年与整年边界、N/N+1/2N/自定义金额、独立工资基数、未知资料与零金额、金额范围与合计溢出、临时 SwiftData 数据库重开及回滚。Debug 可传 `--wealth` 打开财富页；界面验收使用默认字号，覆盖浅色与深色。
+
+安装到模拟器运行时使用以下构建方式，保留 CloudKit 所需的模拟器权限信息。上面的 `CODE_SIGNING_ALLOWED=NO` 命令仅用于编译检查；其产物直接安装运行会在 CloudKit 初始化时退出。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild \
+  -project yoyu.xcodeproj -scheme yoyu \
+  -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug -derivedDataPath /tmp/yoyu-severance-build -jobs 2 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build
+```
+
+2026-09-15 在 iPhone 17 Pro / iOS 27.0 模拟器完成默认字号浅色、深色验收：财富页、补偿明细及编辑页显示正常；月薪 40,000 元、N 为 6.5 时，N 方案为 260,000 元、N+1 为 300,000 元；修改工资后取消保留原方案，默认 N+1 可保存。
+
+此功能为可调整的税前情景测算，未自动处理当地工资封顶、最低工资、2008 年前工龄及税费。法定经济补偿的工资口径通常为前 12 个月应得平均工资，代通知金为上月工资；N+1 不是所有裁员的通用法定结论。规则参考：[劳动合同法](https://www.mohrss.gov.cn/xxgk2020/fdzdgknr/zcfg/fl/202011/t20201102_394622_wap.html)、[劳动合同法实施条例](https://www.mohrss.gov.cn/xxgk2020/fdzdgknr/zcfg/fg/202011/t20201103_394939_wap.html)。真实 CloudKit 跨设备同步仍需已登录同一账户的设备验证。
+
+补偿并入资产明细后的验收：iPhone 17 Pro / iOS 27.0 默认字号下，财富页、补偿详情和编辑页均通过浅色与深色检查。N / N+1 / 2N 分别显示 260,000 / 300,000 / 520,000 元；2N 下总资产 1,429,640 元、补偿占比 36.4%，返回后同步更新。验收后恢复原 N+1 与浅色模式，总资产 1,209,640 元、补偿占比 24.8%。完整模拟器构建、SeveranceTests 和 StockTests 均通过。
+
+交互去重验收：补偿详情移除直接切换控件和底部调整按钮，仅右上角「编辑」进入草稿表单。iPhone 17 Pro / iOS 27.0 默认字号浅色、深色均通过；N 切到 2N 后取消仍保留 260,000 元，保存后为 520,000 元，总资产同步为 1,429,640 元、补偿占比 36.4%。验收完成恢复本次操作前的 N 方案与浅色模式。完整模拟器构建通过。
+
+股票页面布局验收：公司区域紧随人民币参考价值，以同一分组中的普通导航列表展示，每行仅公司名；未来归属时间线排在公司列表后。公司详情保留股数、已归属和未归属价值，并展示总参考价值；未关联股票在详情提供关联任职入口。iPhone 17 Pro / iOS 27.0 默认字号下，列表与公司详情均完成浅色、深色验收，导航往返正常，完整模拟器构建通过。
+
+归属列表默认完整展开：移除前四次限制、“查看全部归属”入口和独立全部计划页，按年份直接展示所有归属日期，单日来源详情保留。iPhone 17 Pro / iOS 27.0 默认字号浅色与深色已核对 2027–2030 年全部 7 次计划，最后一次归属详情可正常打开，完整模拟器构建通过。
+
+## 理财收益测算
+
+入口：财富 → 理财 → 收益测算。预设 3 个月、6 个月、1 年、3 年、5 年、8 年、10 年及自定义，默认 1 年、单利。自定义支持 1–1200 个月或 1–100 年。自动带入当前金额与年化收益率，页面内修改仅用于本次测算，不写回资产配置或增加持久化数据。
+
+单利按初始本金和月份比例计算；复利每满一年复投，剩余月份按年收益率 × 月数 / 12 计算，不在中间年份舍入。结果统一舍入到分。负收益最低归零；金额超限、未填写和输入无效时提示，不显示误导性零值。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
+  yoyu/Models/ProfileRules.swift yoyu/Models/InvestmentProjection.swift \
+  Tests/InvestmentProjectionTests.swift -o /tmp/yoyu-investment-tests
+/tmp/yoyu-investment-tests
+```
+
+覆盖短期、整年、跨年零头、单利/复利差异、负收益、亏损本金封底、零本金/零收益率、四舍五入、期限/金额/利率边界及缺失数据。
+
+## 删除企业履历
+
+任职详情底部的「删除任职记录」通过一次系统确认弹窗执行。提示按实际关联数据显示薪资条数、补偿设置及股票记录和授予批次数，并提醒仅离职应填写离职日期。删除该业务 ID 的全部任职副本及薪资阶段，随任职保存的工作安排、补偿设置一并移除；关联股票记录及其内嵌的持股、授予、归属计划和持仓调整一并删除。一次 SwiftData 保存提交，失败回滚，成功返回上一级。旧资料的迁移标记不清除。
+
+```sh
+swiftc yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift \
+  yoyu/Models/Career.swift yoyu/Models/EquityGrant.swift yoyu/Models/StockHolding.swift \
+  yoyu/Models/EmploymentDeletion.swift Tests/EmploymentDeletionTests.swift \
+  -o /tmp/yoyu-employment-deletion-tests
+/tmp/yoyu-employment-deletion-tests
+```
+
+测试使用独立临时数据库，覆盖重复业务 ID 清理、关联薪资删除、其他企业保留、关联股票及重复副本删除、模拟保存失败后的完整回滚、迁移标记保留、重复调用和持久化重开。界面待验收：默认字号浅色和深色模式下的删除入口、取消确认、确认后返回与统计刷新。真实 CloudKit 跨设备删除同步尚未验证。
+
+薪资阶段删除：在已有薪资记录的编辑页底部点击「删除薪资阶段」，二次确认后删除同企业、同业务 ID 的全部副本；不保存编辑草稿，不删除企业或其他阶段。失败回滚，成功关闭编辑页。CareerTests 覆盖重复副本清理、其他企业隔离、删除后回退到前一阶段、删除最后阶段及持久化读取。编译和规则测试已通过，删除弹窗交互及浅深色外观尚待验收。
+
+## 职业回顾
+
+企业履历顶部通过普通导航行进入职业回顾。累计任职采用自然日区间并集，含入离职当天，不重复累计重叠经历。薪资按已生效且金额有效的阶段绘制，缺失金额、同日冲突与任职空档断开；未来调薪不展示。最近月薪明确标为「最近已录入月薪」，不推断未知工资。时间轴支持时间顺序与任职时长排序。全部信息从 SwiftData 现有记录派生，不添加持久化业务数据。
+
+```sh
+swiftc yoyu/Models/ProfileRules.swift yoyu/Models/UserProfile.swift yoyu/Models/Career.swift \
+  yoyu/Models/CareerReview.swift Tests/CareerReviewTests.swift -o /tmp/yoyu-career-review-tests
+/tmp/yoyu-career-review-tests
+```
+
+测试覆盖任职重叠去重、空档、调薪、重复业务 ID、同日冲突、缺失金额、零工资、未来日期与空数据。Debug 参数 `--profile --career-review` 直接进入回顾；附加 `--review-tenure` 定位任职时间轴。
+
+2026-09-17：完整构建与 CareerReviewTests 通过；iPhone 17 Pro Max / iOS 27 默认字号，使用现有 10 段任职、18 条薪资记录核对了入口、概览、薪资图及任职时间轴的浅色和深色截图。已恢复浅色。模拟器界面控制工具连接失败，点击选点、排序切换及详情跳转尚未完成实际手势验收。
+
+## 股票管理入口与旧资料核对
+
+股票的维护入口统一为「财富 → 股票」。企业履历只展示已归属/未归属股数，并通过共享导航切换到财富中的对应股票详情；没有记录时进入股票列表。旧个人财富详情也跳转到同一入口。
+
+仅存在未处理旧字段时显示一次性核对：已包含的持股由用户核对后停止单独计入，原字段保留；另一份持股须选择尚无股票记录的公司后迁入。部分已录入时先在现有公司补全持仓/计划，再确认核对，不自动叠加。新旧记录同时存在且关系未确认时，股票与财富汇总暂不显示金额。已生成稳定迁移 ID 的记录在同步标记尚未到达时仍不会重复计入。
+
+StockTests 覆盖待核对时阻止汇总、完成核对后只计入公司记录、保留旧值、迁移 ID 的同步先后去重，以及既有回滚与持久化用例。界面检查不替用户确认真实股票资料的归属关系。
+
+本轮在 iPhone 17 Pro Max / iOS 27 默认字号检查了公司摘要与股票空态的浅色、深色显示，并实际点击验证「公司履历 → 前往财富管理股票」切换到财富股票页，切回「我的」保留公司页面。当前模拟器无股票持仓与待迁移旧记录，因此有持仓详情跳转和迁移表单保存尚未进行界面端到端验收；金额重叠逻辑通过 StockTests 验证。未修改用户持仓数据。
+
+## 负债与还款计划
+
+```sh
+swiftc yoyu/Models/ProfileRules.swift yoyu/Models/Liability.swift \
+  yoyu/Services/LiabilityStore.swift Tests/LiabilityTests.swift -o /tmp/yoyu-liability-tests
+/tmp/yoyu-liability-tests
+```
+
+覆盖组合贷、等额本息／等额本金、零及极小利率、月末日期与尾期舍入、账单包含分期的去重、分期首末期费用、确认还款、金额上限、草稿隔离、校准历史和独立数据库重开。测试不访问真实账本或 iCloud。
+
+房贷以最近已确认本金及剩余期数为起点，按当前利率生成标准月度预测；不模拟银行按日计息、未来利率调整或提前还款政策。确认还款只减少本金；余额校准保存调整前快照。信用卡总欠款包含分期未还本金及已入账费用，本期账单覆盖截至其还款日的计划，因此还款合计不再重复叠加对应分期。未来分期费用只计入还款计划。部分还款、提前还款及调息通过余额校准录入银行结果，不自动扣减现金。预计计划不视为已经扣款。
+
+财富 → 负债 → 查看组合贷与分期示例，使用独立内存容器，不写入实际 SwiftData 或 CloudKit 账本。Debug 可用 `--wealth --debt-example` 定位示例，附加 `--debt-plan`、`--debt-card`、`--debt-mortgage` 检查具体页面；这些定位参数不能替代实际点击验收。
+
+新记录使用现有 SwiftData + CloudKit 私有数据库；本地测试不代表完成真实跨设备同步，新增模型的生产 CloudKit schema 仍需按发布流程部署验证。
+
+信用卡固定分期支持分期总额、总期数、当前待还第几期和预计下次还款日，以及年利率（等额本息）或每期手续费率（按原始金额）；每月还款日在账户统一设置。开始日期由下一期待还的期数和日期在内部反推，不要求用户填写。输入第 N 期待还表示前 N−1 期已还，剩余金额包含第 N 期。下一次日期默认取最近的信用卡还款日并可修改。新分期默认按日期推算，严格早于今天的还款日视为预计已还，还款日当天仍待还；月末自动夹取，次月恢复指定日。用户可关闭自动推算，手动维护实际已还期数。旧固定分期继续按手动进度读取，编辑时可开启自动模式。剩余本金和剩余应还（含息）分别计算；历史按修订日期求值。页面通过现有 CareerClock 在前台恢复和每分钟更新估算。新账户不录入普通消费和账单余额。原版本账单记录仍按原方式读取和编辑，避免丢失历史数据。测试覆盖免息、年利率、手续费、已还期数、结清、非法输入和持久化往返；模拟器点击控制超时时仅检查浅色／深色截图，不视为完成交互验收。
+
+## 本设备 iCloud 同步开关
+
+```sh
+swiftc yoyu/Services/SyncPreference.swift Tests/SyncPreferenceTests.swift -o /tmp/yoyu-sync-preference-tests
+/tmp/yoyu-sync-preference-tests
+swiftc -parse-as-library Tests/SyncStorageTests.swift -o /tmp/yoyu-sync-storage-tests
+/tmp/yoyu-sync-storage-tests
+```
+
+覆盖本地偏好持久化、账户确认标识、两种配置的默认数据库路径一致，以及独立临时数据库的离线新增、修改、删除和重新打开。测试不访问用户业务数据库或云端，不能替代真实跨设备同步测试。
+
+开关在下一次进程启动生效。首次没有已确认的账户标识时（包含旧版本升级），先使用原有本地数据库；在「我的 → iCloud 同步」确认当前账户后重新启动，才配置 CloudKit。未登录、账户查询失败或检测到不同账户时，启动时保持本地模式。运行中系统切换账户无法通过 SwiftData 公共接口原子停止自动同步，目前仅提示重启，不宣称完整账户隔离；真实账户切换、重新启用后的双设备合并仍待真机验收。
+
+Debug 启动参数 `--profile --sync` 可定位同步页面，仅用于截图辅助。手动验收应覆盖开关取消/确认、反向切换取消待生效设置、重启后的状态和原数据保留，以及默认字号的浅色/深色模式。

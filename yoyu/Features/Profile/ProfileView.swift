@@ -1,8 +1,18 @@
 import SwiftUI
 import SwiftData
 
+enum ProfileRoute: Hashable {
+    case detail(ProfileSection)
+    case holidays
+    case sync
+}
+
 struct ProfileView: View {
     @Query(sort: \UserProfile.createdAt) private var profiles: [UserProfile]
+    @Query private var jobs: [Employment]
+    @Query private var stages: [SalaryStage]
+    @Environment(\.modelContext) private var context
+    @State private var migrationError: String?
     @Environment(SyncMonitor.self) private var sync
     @State private var editor: ProfileSection? = {
         #if DEBUG
@@ -17,103 +27,48 @@ struct ProfileView: View {
         profiles.max { $0.updatedAt(for: section) < $1.updatedAt(for: section) }
     }
     private var basicProfile: UserProfile? { profile(for: .basic) }
-    private var employmentProfile: UserProfile? { profile(for: .employment) }
-    private var wealthProfile: UserProfile? { profile(for: .wealth) }
-    private var workProfile: UserProfile? { profile(for: .work) }
-    @State private var path: [String] = {
+    @State private var path: NavigationPath = {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--holidays") { return ["holidays"] }
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "--detail"), arguments.indices.contains(index + 1),
+           let section = ProfileSection(rawValue: arguments[index + 1]) { return NavigationPath([ProfileRoute.detail(section)]) }
+        if arguments.contains("--career-review") { return NavigationPath([CareerDestination.history, CareerDestination.review]) }
+        if arguments.contains("--career-history") { return NavigationPath([CareerDestination.history]) }
+        if arguments.contains("--sync") { return NavigationPath([ProfileRoute.sync]) }
+        if arguments.contains("--holidays") { return NavigationPath([ProfileRoute.holidays]) }
         #endif
-        return []
+        return NavigationPath()
     }()
 
     var body: some View {
         NavigationStack(path: $path) {
-            List {
-                Section {
-                    Button { editor = .basic } label: {
-                        menuRow("基本信息", subtitle: basicSummary, icon: "person.crop.circle", color: .blue)
-                    }
-                    if let profile = basicProfile, profile.retirement != "待完善" {
-                        LabeledContent("预计退休", value: profile.retirement)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: { Text("个人") }
-
-                Section {
-                    Button { editor = .employment } label: {
-                        menuRow("薪资待遇", subtitle: salarySummary, icon: "building.2", color: .indigo)
-                    }
-                    Button { editor = .work } label: {
-                        menuRow("工作安排", subtitle: workSummary, icon: "clock", color: .orange)
-                    }
-                } header: { Text("企业信息") }
-
-                Section {
-                    Button { editor = .wealth } label: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Label("当前财富", systemImage: "wallet.bifold")
-                                    .font(.headline)
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                            }
-                            Text(ProfileRules.money(wealthProfile?.totalWealth))
-                                .font(.largeTitle.weight(.semibold)).monospacedDigit()
-                                .minimumScaleFactor(0.65)
-                            Text(wealthSummary).font(.caption).foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    LabeledContent("现金", value: ProfileRules.money(wealthProfile?.cashCents))
-                    LabeledContent {
-                        Text(ProfileRules.money(wealthProfile?.stockValueCents))
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("股票")
-                            if let shares = wealthProfile?.stockSharesHundredths, let price = wealthProfile?.stockPriceCents {
-                                Text("\(ProfileRules.input(shares)) 股 × \(ProfileRules.money(price))/股")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    LabeledContent("理财", value: ProfileRules.money(wealthProfile?.investmentCents))
-                    if let rate = wealthProfile?.investmentAnnualReturnBasisPoints {
-                        LabeledContent("年化收益率", value: "\(ProfileRules.input(rate))%")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }
-                } header: { Text("资产") }
-
-                Section {
-                    NavigationLink(value: "holidays") {
-                        Label("调休安排", systemImage: "calendar.badge.clock")
-                    }
-                    NavigationLink {
-                        SyncStatusView()
-                    } label: {
-                        HStack {
-                            Label("iCloud 同步", systemImage: "icloud")
-                            Spacer(minLength: 8)
-                            Text(sync.accountMessage)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
+            ProfileMenuView(summary: basicSummary, syncStatus: sync.summary)
+            .dashboardTabRoot(title: "我的")
+            .navigationDestination(for: ProfileRoute.self) { route in
+                switch route {
+                case .detail(let section):
+                    if section == .employment || section == .work {
+                        CareerView(destination: section == .work ? .work : .salary)
+                    } else { ProfileDetailView(section: section) }
+                case .holidays: HolidayScheduleView()
+                case .sync: SyncStatusView()
                 }
             }
-            .buttonStyle(.plain)
-            #if os(iOS)
-            .toolbar(.hidden, for: .navigationBar)
-            #endif
-            .navigationDestination(for: String.self) { _ in HolidayScheduleView() }
+            .navigationDestination(for: CareerDestination.self) { CareerView(destination: $0) }
             .sheet(item: $editor) { section in
-                ProfileEditor(section: section, profile: profile(for: section))
+                if section == .employment || section == .work {
+                    NavigationStack {
+                        CareerView(destination: section == .work ? .work : .salary)
+                            .navigationDestination(for: CareerDestination.self) { CareerView(destination: $0) }
+                    }
+                } else { ProfileEditor(section: section, profile: profile(for: section)) }
             }
             .task { await sync.checkAccount() }
+            .task(id: profiles.map { "\($0.createdAt)-\($0.employmentUpdatedAt?.description ?? "")-\($0.careerMigrated)" }.joined()) {
+                do { try CareerRules.migrate(context: context, profiles: profiles, jobs: jobs, stages: stages) }
+                catch { migrationError = "原始资料已保留，企业履历衔接失败：\(error.localizedDescription)" }
+            }
+            .saveErrorAlert($migrationError)
         }
     }
 
@@ -123,34 +78,5 @@ struct ProfileView: View {
         if let year = profile.birthYear, let month = profile.birthMonth { items.append("\(year) 年 \(month) 月") }
         if !profile.gender.isEmpty { items.append(profile.gender) }
         return items.isEmpty ? "完善出生年月与性别" : items.joined(separator: " · ")
-    }
-    private var salarySummary: String {
-        guard let salary = employmentProfile?.salaryCents else { return "设置入职时间、月薪与年终奖" }
-        return "税前月薪 \(ProfileRules.money(salary))"
-    }
-    private var workSummary: String {
-        let start = workProfile?.startMinutes ?? 540
-        let end = workProfile?.endMinutes ?? 1080
-        return "\(ProfileRules.timeLabel(start))—\(ProfileRules.timeLabel(end)) · \((workProfile?.followsHolidays ?? true) ? "跟随国家调休" : "自定义工作日")"
-    }
-    private var wealthSummary: String {
-        let count = [wealthProfile?.cashCents, wealthProfile?.stockValueCents, wealthProfile?.investmentCents].compactMap { $0 }.count
-        return count == 3 ? "现金、股票与理财的当前总额" : "已填写 \(count)/3 项 · 总额仅汇总已填写金额"
-    }
-    private func menuRow(_ title: String, subtitle: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title2).foregroundStyle(color)
-                .frame(width: 42, height: 42)
-                .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title).font(.headline).foregroundStyle(.primary)
-                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 4)
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
     }
 }
