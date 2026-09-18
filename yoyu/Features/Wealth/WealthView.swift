@@ -41,9 +41,7 @@ struct WealthView: View {
                         ForEach(WealthCategory.allCases) { category in
                             WealthCategoryCard(category: category, amount: categoryAmount(category),
                                                isExpanded: expandedCategory == category) {
-                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
-                                    expandedCategory = expandedCategory == category ? nil : category
-                                }
+                                toggleCard(category)
                             } content: {
                                 categoryContent(category)
                             }
@@ -100,6 +98,20 @@ struct WealthView: View {
                         ContentUnavailableView("股票记录已不可用", systemImage: "chart.bar", description: Text("请返回股票列表查看。"))
                     }
                 }
+            }
+        }
+    }
+
+    private func toggleCard(_ category: WealthCategory) {
+        let next: WealthCategory? = expandedCategory == category ? nil : category
+        if reduceMotion {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { expandedCategory = next }
+        } else {
+            // Move directly to the selected arrangement, without an intermediate closed state.
+            withAnimation(.timingCurve(0.18, 0.65, 0.25, 1, duration: 0.32)) {
+                expandedCategory = next
             }
         }
     }

@@ -78,7 +78,7 @@ struct WealthCategoryCard<Content: View>: View {
                 .frame(height: WealthCardGeometry.headerHeight)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(WealthCardNoFeedbackStyle())
             .accessibilityValue(isExpanded ? "已展开" : "已收起")
             .accessibilityHint(isExpanded ? "轻点收起分类" : "轻点展开分类")
             VStack(alignment: .leading, spacing: 16) {
@@ -102,5 +102,19 @@ struct WealthCategoryCard<Content: View>: View {
                 .allowsHitTesting(false)
         }
         .clipShape(RoundedRectangle(cornerRadius: 28))
+        .background {
+            // The shadow belongs to the entire surface, so it travels with the card.
+            RoundedRectangle(cornerRadius: 28)
+                .fill(.black.opacity(dark ? 0.28 : 0.10))
+                .shadow(color: .black.opacity(dark ? 0.30 : 0.12), radius: 3, y: -2)
+        }
+    }
+}
+
+/// Keep the header visually unchanged for the entire touch, including release.
+/// PlainButtonStyle can still apply the platform's pressed-state appearance.
+private struct WealthCardNoFeedbackStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
     }
 }
