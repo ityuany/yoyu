@@ -69,15 +69,13 @@ struct WealthView: View {
                                      value: accounts.isEmpty ? nil : LiabilityRules.total(accounts, on: clock.now), empty: accounts.isEmpty ? "添加" + kind.title : "待核对")
                         }
                     }
-                    NavigationLink { DebtScheduleView(accounts: LiabilityRules.accounts(liabilities)) } label: {
-                        Label("每月已知还款", systemImage: "calendar")
-                    }
                     if liabilities.isEmpty {
                         NavigationLink { LiabilityExampleView() } label: {
                             Label("查看组合贷与分期示例", systemImage: "sparkles")
                         }
                     }
                 }
+                ExpenseHomeSection()
             }.neutralPageBackground()
             .listStyle(.insetGrouped)
             .dashboardTabRoot(title: "财富")

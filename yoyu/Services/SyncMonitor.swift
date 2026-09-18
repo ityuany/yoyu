@@ -184,7 +184,7 @@ final class AppStorageController {
 
     private func openStore(cloud: Bool) {
         do {
-            let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, StockHolding.self, LiabilityAccount.self])
+            let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self])
             // Keep the existing default store location in both modes. Never copy or delete it.
             let configuration = ModelConfiguration(schema: schema, cloudKitDatabase: cloud ? .private(SyncMonitor.containerID) : .none)
             container = try ModelContainer(for: schema, configurations: [configuration])
