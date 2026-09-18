@@ -27,16 +27,41 @@ struct ExpenseRow: View {
 }
 
 struct ExpenseHomeSection: View {
+    var cardLayout = false
     @Query private var records: [RecurringExpense]
     @Query private var liabilities: [LiabilityAccount]
     @Environment(CareerClock.self) private var clock
     @State private var adding = false
     private var accounts: [LiabilityAccount] { LiabilityRules.accounts(liabilities) }
     var body: some View {
-        Section {
+        Group {
+            if cardLayout {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("预计支出").font(.headline)
+                    VStack(alignment: .leading, spacing: 16) { rows }
+                        .buttonStyle(.plain)
+                    Text(footerText).font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 22)
+            } else {
+                Section { rows } header: { Text("预计支出") } footer: { Text(footerText) }
+            }
+        }
+        .sheet(isPresented: $adding) { ExpenseEditor() }
+    }
+
+    private var footerText: String {
+        ExpectedExpenseRules.missingBills(accounts)
+            ? "含已有还款计划和日常开支；部分信用卡账单未录入，合计仅含已知部分。"
+            : "自动汇总已有还款计划和日常开支，点击还款可查看原负债详情。"
+    }
+
+    private var rows: some View {
+        Group {
             NavigationLink { ExpectedExpenseView() } label: {
                 LabeledContent("本月预计支出", value: ExpectedExpenseRules.total(expenses: records, liabilities: accounts, in: clock.now).map { ProfileRules.money($0) } ?? "待核对")
             }
+            if cardLayout { Divider() }
             ForEach(accounts) { account in
                 NavigationLink { LiabilityDetailView(accountID: account.id) } label: {
                     RepaymentExpenseRow(account: account, month: clock.now)
@@ -45,18 +70,14 @@ struct ExpenseHomeSection: View {
             ForEach(Array(ExpenseRules.records(records).prefix(3))) { record in
                 NavigationLink { ExpenseDetailView(recordID: record.id) } label: { ExpenseRow(record: record, date: clock.now) }
             }
+            if cardLayout && (!accounts.isEmpty || !records.isEmpty) { Divider() }
             if records.isEmpty {
                 Text("还可添加生活费、租金、保险等日常开支。")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             NavigationLink("查看全部预计支出") { ExpectedExpenseView() }
             Button { adding = true } label: { Label("添加日常开支", systemImage: "plus") }
-        } header: { Text("预计支出") } footer: {
-            Text(ExpectedExpenseRules.missingBills(accounts)
-                 ? "含已有还款计划和日常开支；部分信用卡账单未录入，合计仅含已知部分。"
-                 : "自动汇总已有还款计划和日常开支，点击还款可查看原负债详情。")
         }
-        .sheet(isPresented: $adding) { ExpenseEditor() }
     }
 }
 

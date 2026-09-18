@@ -10,6 +10,10 @@ struct WealthView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(CareerClock.self) private var clock
 
+    @State private var expandedCategory: WealthCategory?
+    @State private var editingAsset: WealthEditScope?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var profile: UserProfile? { profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) } }
     private var stockValue: Int64? { StockRules.portfolio(holdings, profile: profile, on: clock.now) }
     private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, now: clock.now) }
@@ -18,7 +22,7 @@ struct WealthView: View {
     private var needsReview: Bool { StockRules.needsLegacyReview(holdings, profile: profile) && !holdings.isEmpty }
     private var needsPrice: Bool { holdings.contains { !$0.priceIsConfigured } }
     private var composition: [(name: String, amount: Double, color: Color)] {
-        [("现金", profile?.cashCents, DashboardStyle.cash), ("股票", stockValue, DashboardStyle.stock), ("理财", profile?.investmentCents, DashboardStyle.investment), ("补偿", compensation, DashboardStyle.compensation)]
+        [("现金", profile?.cashCents, WealthCategory.cash.marker), ("股票", stockValue, WealthCategory.stocks.marker), ("理财", profile?.investmentCents, WealthCategory.investment.marker), ("补偿", compensation, WealthCategory.compensation.marker)]
             .compactMap { name, cents, color in
                 guard let cents else { return nil }
                 return (name, Double(cents), color)
@@ -28,56 +32,62 @@ struct WealthView: View {
     var body: some View {
         @Bindable var navigation = navigation
         NavigationStack(path: $navigation.wealthPath) {
-            List {
-                Section {
+            ScrollView {
+                VStack(spacing: 0) {
                     WealthSummaryCard(amount: total.map { ProfileRules.money($0) } ?? (needsReview ? "待核对股票" : needsPrice ? "待补全股价" : "待填写"), composition: composition, needsPrice: needsPrice)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
+                        .padding(.bottom, 20)
 
-                if !liabilities.isEmpty {
-                    Section {
-                        LabeledContent("当前负债", value: LiabilityRules.total(liabilities, on: clock.now).map { ProfileRules.money($0) } ?? "待核对")
-                        LabeledContent("资产净值", value: recordedNetWorth.map { ProfileRules.money($0) } ?? "待补全资产")
-                    } footer: {
-                        Text("净值按现金、已归属股票和理财减当前负债计算。自动分期按日期估算；不含房产估值、未归属股票与预计补偿。")
-                    }
-                }
-                Section("资产明细") {
-                    NavigationLink { WealthAssetDetailView(asset: .cash) } label: {
-                        assetRow("现金", icon: "banknote", color: DashboardStyle.cash, value: profile?.cashCents, empty: "添加现金余额")
-                    }
-                    NavigationLink(value: WealthDestination.stocks) {
-                        assetRow("股票", icon: "chart.bar.fill", color: DashboardStyle.stock, value: stockValue,
-                                 empty: needsReview ? "待核对旧记录" : needsPrice ? "待设置股价" : holdings.isEmpty && StockRules.legacy(profile) == nil ? "记录股票激励" : "待补全")
-                    }
-                    NavigationLink { WealthAssetDetailView(asset: .investment) } label: {
-                        assetRow("理财", icon: "chart.pie.fill", color: DashboardStyle.investment, value: profile?.investmentCents, empty: "添加理财资产")
-                    }
-                }
-                Section("未来资产") {
-                    NavigationLink { SeveranceDetailView() } label: {
-                        assetRow("补偿", icon: "briefcase.fill", color: DashboardStyle.compensation, value: compensation, empty: scenario.job == nil ? "完善当前任职" : "完善补偿方案")
-                    }
-                }
-                Section("负债明细") {
-                    ForEach(LiabilityKind.allCases) { kind in
-                        NavigationLink { LiabilityOverviewView(filter: kind) } label: {
-                            let accounts = LiabilityRules.accounts(liabilities).filter { $0.kind == kind }
-                            assetRow(kind.title, icon: kind.icon, color: DashboardStyle.accent,
-                                     value: accounts.isEmpty ? nil : LiabilityRules.total(accounts, on: clock.now), empty: accounts.isEmpty ? "添加" + kind.title : "待核对")
+                    ZStack(alignment: .top) {
+                        ForEach(WealthCategory.allCases) { category in
+                            WealthCategoryCard(category: category, amount: categoryAmount(category),
+                                               isExpanded: expandedCategory == category) {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
+                                    expandedCategory = expandedCategory == category ? nil : category
+                                }
+                            } content: {
+                                categoryContent(category)
+                            }
+                            // Resolve the card as one geometry unit before moving it.
+                            // Children must not animate their layout independently of the surface.
+                            .transaction { $0.animation = nil }
+                            .geometryGroup()
+                            .offset(y: cardOffset(category))
+                            .zIndex(Double(WealthCategory.allCases.firstIndex(of: category)!))
                         }
                     }
-                    if liabilities.isEmpty {
-                        NavigationLink { LiabilityExampleView() } label: {
-                            Label("查看组合贷与分期示例", systemImage: "sparkles")
+                    .frame(height: CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
+                           + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance), alignment: .top)
+                    .buttonStyle(.plain)
+                    ExpenseHomeSection(cardLayout: true)
+                        .padding(.top, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background {
+                            DashboardStyle.background
+                                .padding(.horizontal, -DashboardStyle.pageInset)
                         }
-                    }
+                        .overlay(alignment: .top) {
+                            LinearGradient(colors: [.clear, .black.opacity(0.12)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .frame(height: 12)
+                                .offset(y: -12)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                        .overlay(alignment: .top) {
+                            Rectangle().fill(.primary.opacity(0.06)).frame(height: 0.5)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                        .zIndex(10)
                 }
-                ExpenseHomeSection()
-            }.neutralPageBackground()
-            .listStyle(.insetGrouped)
+                .padding(.horizontal, DashboardStyle.pageInset)
+                .padding(.top, 20)
+                .padding(.bottom, 24)
+            }
+            .background(DashboardStyle.background)
+            .sheet(item: $editingAsset) { asset in
+                ProfileEditor(section: .wealth, profile: profile, wealthScope: asset)
+            }
             .dashboardTabRoot(title: "财富")
             .navigationDestination(for: WealthDestination.self) { destination in
                 switch destination {
@@ -100,17 +110,89 @@ struct WealthView: View {
         return assets - debts
     }
 
-    private func assetRow(_ title: String, icon: String, color: Color, value: Int64?, empty: String) -> some View {
-        LabeledContent {
-            Text(value.map { ProfileRules.money($0) } ?? empty)
+    private func cardOffset(_ category: WealthCategory) -> CGFloat {
+        let categories = WealthCategory.allCases
+        guard let index = categories.firstIndex(of: category) else { return 0 }
+        let expandedIndex = expandedCategory.flatMap { categories.firstIndex(of: $0) }
+        let isBelowExpanded = expandedIndex.map { index > $0 } ?? false
+        return CGFloat(index) * WealthCardGeometry.headerHeight
+            + (isBelowExpanded ? WealthCardGeometry.revealDistance : 0)
+    }
+
+    private func categoryAmount(_ category: WealthCategory) -> String {
+        switch category {
+        case .cash: profile?.cashCents.map { ProfileRules.money($0) } ?? "待填写"
+        case .stocks: stockValue.map { ProfileRules.money($0) } ?? (needsReview ? "待核对" : needsPrice ? "待补全股价" : "待记录")
+        case .investment: profile?.investmentCents.map { ProfileRules.money($0) } ?? "待填写"
+        case .compensation: compensation.map { ProfileRules.money($0) } ?? "待完善"
+        case .debt: liabilities.isEmpty ? "待记录" : LiabilityRules.total(liabilities, on: clock.now).map { ProfileRules.money($0) } ?? "待核对"
+        }
+    }
+
+    @ViewBuilder private func categoryContent(_ category: WealthCategory) -> some View {
+        switch category {
+        case .cash:
+            Text("记录随时可用的现金与存款余额。")
+                .foregroundStyle(.secondary)
+            NavigationLink { WealthAssetDetailView(asset: .cash) } label: {
+                detailLink("现金余额", icon: "banknote", value: categoryAmount(.cash))
+            }
+            Button { editingAsset = .cash } label: {
+                Label(profile?.cashCents == nil ? "添加现金余额" : "更新现金余额", systemImage: "plus.circle")
+            }
+        case .stocks:
+            LabeledContent("未归属价值", value: ProfileRules.money(StockRules.portfolio(holdings, profile: profile, on: clock.now, unvested: true)))
                 .monospacedDigit()
-        } label: {
-            Label {
-                Text(title)
-            } icon: {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
+            Text(needsReview ? "旧股票记录待核对，暂不计算汇总。" : "总资产仅计入已归属部分，按手动设置的股价估算。")
+                .font(.caption).foregroundStyle(.secondary)
+            NavigationLink(value: WealthDestination.stocks) {
+                detailLink(holdings.isEmpty ? "记录股票激励" : "查看公司与归属计划", icon: "chart.bar")
+            }
+        case .investment:
+            LabeledContent("年化收益率", value: profile?.investmentAnnualReturnBasisPoints.map { "\(ProfileRules.input($0))%" } ?? "待填写")
+                .monospacedDigit()
+            NavigationLink { WealthAssetDetailView(asset: .investment) } label: {
+                detailLink("理财详情与收益测算", icon: "chart.line.uptrend.xyaxis")
+            }
+            Button { editingAsset = .investment } label: {
+                Label(profile?.investmentCents == nil ? "添加理财资产" : "更新理财资产", systemImage: "plus.circle")
+            }
+        case .compensation:
+            Text("根据当前任职和补偿方案估算，尚未实际到账。")
+                .foregroundStyle(.secondary)
+            NavigationLink { SeveranceDetailView() } label: {
+                detailLink(scenario.job == nil ? "完善当前任职" : "查看补偿方案", icon: "briefcase")
+            }
+        case .debt:
+            ForEach(LiabilityKind.allCases) { kind in
+                NavigationLink { LiabilityOverviewView(filter: kind) } label: {
+                    let accounts = LiabilityRules.accounts(liabilities).filter { $0.kind == kind }
+                    detailLink(kind.title, icon: kind.icon,
+                               value: accounts.isEmpty ? "添加" : LiabilityRules.total(accounts, on: clock.now).map { ProfileRules.money($0) } ?? "待核对")
+                }
+            }
+            if liabilities.isEmpty {
+                NavigationLink { LiabilityExampleView() } label: {
+                    detailLink("查看组合贷与分期示例", icon: "sparkles")
+                }
+            } else {
+                LabeledContent("资产净值", value: recordedNetWorth.map { ProfileRules.money($0) } ?? "待补全资产")
+                    .monospacedDigit()
+                Text("净值不含房产、未归属股票与预计补偿。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func detailLink(_ title: String, icon: String, value: String? = nil) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon).frame(width: 22)
+            Text(title)
+            Spacer(minLength: 4)
+            if let value { Text(value).monospacedDigit() }
+            Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).opacity(0.6)
+        }
+        .frame(minHeight: 36)
+        .contentShape(Rectangle())
     }
 }

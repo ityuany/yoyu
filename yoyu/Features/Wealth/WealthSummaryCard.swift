@@ -24,7 +24,7 @@ struct WealthSummaryCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("总资产").font(.subheadline).foregroundStyle(.secondary)
                 DashboardAmount(value: amount)
@@ -69,6 +69,7 @@ struct WealthSummaryCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .dashboardCard(highlighted: true)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
     }
 }
