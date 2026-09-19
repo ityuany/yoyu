@@ -28,11 +28,44 @@ struct ExpenseRow: View {
 
 struct ExpenseHomeSection: View {
     var cardLayout = false
+    var onSelectCard: (() -> Void)?
     @Query private var records: [RecurringExpense]
     @Query private var liabilities: [LiabilityAccount]
     @Environment(CareerClock.self) private var clock
     @State private var adding = false
     private var accounts: [LiabilityAccount] { LiabilityRules.accounts(liabilities) }
+    private struct PreviewItem: Identifiable {
+        let sourceID: String
+        let isRepayment: Bool
+        let title: String
+        let detail: String
+        let icon: String
+        let amount: Int64?
+        var id: String { "\(isRepayment ? "repayment" : "expense"):\(sourceID)" }
+    }
+
+    private var previewItems: [PreviewItem] {
+        let repayments = accounts.map { account in
+            PreviewItem(sourceID: account.id, isRepayment: true, title: account.name,
+                        detail: "\(account.kind?.title ?? "负债")还款", icon: account.kind?.icon ?? "creditcard",
+                        amount: ExpectedExpenseRules.repayment(account, in: clock.now))
+        }
+        let expenses = ExpenseRules.records(records).map { record in
+            PreviewItem(sourceID: record.id, isRepayment: false, title: record.plan?.name ?? "开支记录待核对",
+                        detail: record.plan.map { $0.estimated ? "预估开支" : "固定开支" } ?? "待核对",
+                        icon: "repeat", amount: record.plan.flatMap { ExpenseRules.amount($0, in: clock.now) })
+        }
+        return (repayments + expenses).sorted {
+            // Unknown amounts follow known amounts; IDs make ties stable across refreshes.
+            switch ($0.amount, $1.amount) {
+            case let (lhs?, rhs?) where lhs != rhs: return lhs > rhs
+            case (_?, nil): return true
+            case (nil, _?): return false
+            default: return $0.id < $1.id
+            }
+        }
+    }
+
     var body: some View {
         Group {
             if cardLayout {
@@ -46,36 +79,24 @@ struct ExpenseHomeSection: View {
     }
 
     private var ledger: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            NavigationLink { ExpectedExpenseView() } label: {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("本月支出").font(.headline)
-                        Text("按已有计划预计").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 12)
-                    Text(ExpectedExpenseRules.total(expenses: records, liabilities: accounts, in: clock.now).map { ProfileRules.money($0) } ?? "待核对")
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .monospacedDigit()
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                }
-                .padding(.bottom, 18)
-                .contentShape(Rectangle())
+        let items = previewItems
+        return VStack(alignment: .leading, spacing: 0) {
+            if let onSelectCard {
+                Button(action: onSelectCard) { ledgerHeader }
+                    .accessibilityHint("收起上方展开的卡片，支出保持展开")
+            } else {
+                NavigationLink { ExpectedExpenseView() } label: { ledgerHeader }
             }
             Divider()
-            ForEach(Array(accounts.prefix(3))) { account in
-                NavigationLink { LiabilityDetailView(accountID: account.id) } label: {
-                    ledgerRow(account.name, detail: "\(account.kind?.title ?? "负债")还款",
-                              icon: account.kind?.icon ?? "creditcard",
-                              amount: ExpectedExpenseRules.repayment(account, in: clock.now))
-                }
-            }
-            ForEach(Array(ExpenseRules.records(records).prefix(max(0, 3 - accounts.count)))) { record in
-                if let plan = record.plan {
-                    NavigationLink { ExpenseDetailView(recordID: record.id) } label: {
-                        ledgerRow(plan.name, detail: plan.estimated ? "预估开支" : "固定开支", icon: "repeat",
-                                  amount: ExpenseRules.amount(plan, in: clock.now))
+            ForEach(Array(items.prefix(10))) { item in
+                NavigationLink {
+                    if item.isRepayment {
+                        LiabilityDetailView(accountID: item.sourceID)
+                    } else {
+                        ExpenseDetailView(recordID: item.sourceID)
                     }
+                } label: {
+                    ledgerRow(item.title, detail: item.detail, icon: item.icon, amount: item.amount)
                 }
             }
             if accounts.isEmpty && records.isEmpty {
@@ -89,7 +110,7 @@ struct ExpenseHomeSection: View {
             HStack {
                 NavigationLink { ExpectedExpenseView() } label: {
                     HStack(spacing: 5) {
-                        Text("查看全部")
+                        Text("查看全部 · 共 \(items.count) 项")
                         Image(systemName: "arrow.up.right").font(.caption2)
                     }.frame(minHeight: 44)
                 }
@@ -103,6 +124,24 @@ struct ExpenseHomeSection: View {
         }
         .foregroundStyle(.primary)
         .buttonStyle(.plain)
+    }
+
+    private var ledgerHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("本月支出").font(.headline)
+                Text("按已有计划预计").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            Text(ExpectedExpenseRules.total(expenses: records, liabilities: accounts, in: clock.now).map { ProfileRules.money($0) } ?? "待核对")
+                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+            if onSelectCard == nil {
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.bottom, 18)
+        .contentShape(Rectangle())
     }
 
     private func ledgerRow(_ title: String, detail: String, icon: String, amount: Int64?) -> some View {

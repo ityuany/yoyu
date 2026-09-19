@@ -52,15 +52,27 @@ struct WealthView: View {
                             .offset(y: cardOffset(category))
                             .zIndex(Double(WealthCategory.allCases.firstIndex(of: category)!))
                         }
+
+                        // This final, always-open card determines the stack's natural height.
+                        // Its opaque surface covers the debt body just like the other cards.
+                        ExpenseHomeSection(cardLayout: true, onSelectCard: { setExpandedCategory(nil) })
+                            .padding(.vertical, 22)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(uiColor: .secondarySystemGroupedBackground),
+                                        in: RoundedRectangle(cornerRadius: 28))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 28)
+                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                    .allowsHitTesting(false)
+                            }
+                            .transaction { $0.animation = nil }
+                            .geometryGroup()
+                            .padding(.top, CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
+                                     + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance))
+                            .zIndex(Double(WealthCategory.allCases.count))
                     }
-                    .frame(height: CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
-                           + 16 + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance), alignment: .top)
                     .clipShape(RoundedRectangle(cornerRadius: 28))
                     .buttonStyle(.plain)
-
-                    ExpenseHomeSection(cardLayout: true)
-                        .padding(.top, 32)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, DashboardStyle.pageInset)
                 .padding(.top, 20)
@@ -87,7 +99,11 @@ struct WealthView: View {
     }
 
     private func toggleCard(_ category: WealthCategory) {
-        let next: WealthCategory? = expandedCategory == category ? nil : category
+        setExpandedCategory(expandedCategory == category ? nil : category)
+    }
+
+    private func setExpandedCategory(_ next: WealthCategory?) {
+        guard expandedCategory != next else { return }
         if reduceMotion {
             var transaction = Transaction()
             transaction.disablesAnimations = true
