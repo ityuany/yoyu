@@ -10,10 +10,16 @@ struct TodayDashboard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let job = CareerRules.current(jobs, on: now)
+        let value = job.flatMap { TodayIncome.snapshot(job: $0, stages: stages, now: now) }
+        let mood = value.flatMap { value in
+            job.map { TodayMood(day: value.day, isRest: value.status == .rest, followsHolidays: $0.followsHolidays) }
+        }
+
         GeometryReader { geometry in
             ScrollView {
-                if let job = CareerRules.current(jobs, on: now) {
-                    if let value = TodayIncome.snapshot(job: job, stages: stages, now: now) {
+                if let job {
+                    if let value {
                         focusedDashboard(value, job: job, height: geometry.size.height)
                     } else {
                         setup(title: "再补充一点，就能看见今日收入", message: "完善入职日期、月薪和上下班时间，悠悠就能帮你估算每天的积累。", destination: .employment(job.id))
@@ -22,8 +28,15 @@ struct TodayDashboard: View {
                     setup(title: "让每一份努力，都看得见", message: "添加当前企业，填写薪资与工作安排，看看每一天的努力如何慢慢积累。若有多段在职经历，请先完善离职日期。", destination: .history)
                 }
             }
-            .contentMargins(.horizontal, DashboardStyle.pageInset, for: .scrollContent)
-            .background(DashboardStyle.background)
+            .contentMargins(.horizontal, 24, for: .scrollContent)
+        }
+        .background {
+            if let mood {
+                TodayPalette(mood: mood, dark: colorScheme == .dark).fill
+                    .ignoresSafeArea()
+            } else {
+                DashboardStyle.background.ignoresSafeArea()
+            }
         }
     }
 
@@ -42,7 +55,9 @@ struct TodayDashboard: View {
             }
             .foregroundStyle(.secondary)
 
-            Spacer(minLength: 24)
+            Color.clear
+                .frame(height: min(80, max(32, height * 0.10)))
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(mood.label) · \(statusLabel(value.status))")
@@ -80,15 +95,8 @@ struct TodayDashboard: View {
                         .accessibilityLabel("\(monthLabel(value.day))工作日，已完成 \(value.completedWorkdays) 天，共 \(value.monthlyWorkdays) 天")
                 }
             }
-            .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(palette.ink)
-            .background(palette.fill, in: RoundedRectangle(cornerRadius: 28))
-            .overlay {
-                RoundedRectangle(cornerRadius: 28)
-                    .strokeBorder(.white.opacity(colorScheme == .dark ? 0.10 : 0.8), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
 
             calculationNotes(value)
             previewNotice
