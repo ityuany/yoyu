@@ -30,7 +30,7 @@ struct TodayDashboard: View {
     private func focusedDashboard(_ value: TodayIncome.Snapshot, job: Employment, height: CGFloat) -> some View {
         let mood = TodayMood(day: value.day, isRest: value.status == .rest, followsHolidays: job.followsHolidays)
         let palette = TodayPalette(mood: mood, dark: colorScheme == .dark)
-        return VStack(spacing: 16) {
+        return VStack(spacing: 0) {
             HStack {
                 dateLabel(value.day, isShift: value.status != .rest)
                 Spacer()
@@ -41,6 +41,8 @@ struct TodayDashboard: View {
                 }
             }
             .foregroundStyle(.secondary)
+
+            Spacer(minLength: 24)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(mood.label) · \(statusLabel(value.status))")
@@ -61,14 +63,21 @@ struct TodayDashboard: View {
                             .font(.system(.title2, design: .rounded).weight(.semibold))
                         Text(mood.subtitle)
                             .font(.subheadline).opacity(0.8)
-                        Rectangle().fill(palette.ink.opacity(0.12)).frame(height: 1)
-                            .padding(.top, 20)
                         Text("今日休息，不累计收入")
                             .font(.caption).opacity(0.8)
                             .padding(.top, 4)
                     }
                 } else {
                     incomeFocus(value, mood: mood, ink: palette.ink)
+                }
+
+                Rectangle().fill(palette.ink.opacity(0.14)).frame(height: 1)
+                    .padding(.top, 28)
+                    .padding(.bottom, 22)
+                HStack(alignment: .top, spacing: 20) {
+                    metric("\(monthLabel(value.day))已赚", value: value.monthCents.map { ProfileRules.money($0) } ?? "待补全")
+                    metric("\(monthLabel(value.day))工作日", value: "\(value.completedWorkdays) / \(value.monthlyWorkdays) 天")
+                        .accessibilityLabel("\(monthLabel(value.day))工作日，已完成 \(value.completedWorkdays) 天，共 \(value.monthlyWorkdays) 天")
                 }
             }
             .padding(24)
@@ -81,17 +90,14 @@ struct TodayDashboard: View {
                     .allowsHitTesting(false)
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                metric("\(monthLabel(value.day))已赚", value: value.monthCents.map { ProfileRules.money($0) } ?? "待补全", hue: 0.12)
-                metric("\(monthLabel(value.day))已完成", value: "\(value.completedWorkdays) 个工作日", hue: 0.70)
-            }
             calculationNotes(value)
             previewNotice
-            Spacer(minLength: 0)
+                .padding(.top, isPreview ? 12 : 0)
+            Spacer(minLength: 24)
         }
+        .frame(minHeight: max(0, height - 28))
         .padding(.top, 8)
         .padding(.bottom, 20)
-        .frame(minHeight: max(0, height), alignment: .top)
     }
 
     private func incomeFocus(_ value: TodayIncome.Snapshot, mood: TodayMood, ink: Color) -> some View {
@@ -175,31 +181,31 @@ struct TodayDashboard: View {
         #endif
     }
 
-    private func metric(_ title: String, value: String, hue: Double) -> some View {
+    private func metric(_ title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
+            Text(title).font(.caption).opacity(0.8)
+            Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.75)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            Color(hue: hue, saturation: colorScheme == .dark ? 0.22 : 0.07, brightness: colorScheme == .dark ? 0.19 : 0.95),
-            in: RoundedRectangle(cornerRadius: 20)
-        )
+        .accessibilityElement(children: .combine)
     }
 
+    @ViewBuilder
     private func calculationNotes(_ value: TodayIncome.Snapshot) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if value.missingHolidayYear {
-                Text("该年节假日资料尚未收录，应工作日暂按每周工作安排估算。")
+        if value.missingHolidayYear || !ProfileRules.calendar.isDate(value.day, inSameDayAs: now) {
+            VStack(alignment: .leading, spacing: 12) {
+                if value.missingHolidayYear {
+                    Text("该年节假日资料尚未收录，应工作日暂按每周工作安排估算。")
+                }
+                if !ProfileRules.calendar.isDate(value.day, inSameDayAs: now) {
+                    Text("当前显示上一日开始的跨夜班次，收入归入班次开始日。")
+                }
             }
-            if ProfileRules.calendar.startOfDay(for: value.day) != ProfileRules.calendar.startOfDay(for: now) {
-                Text("当前显示上一日开始的跨夜班次，收入归入班次开始日。")
-            }
+            .font(.caption).foregroundStyle(.secondary)
+            .padding(.top, 16)
         }
-        .font(.caption).foregroundStyle(.secondary)
-        .tint(DashboardStyle.accent)
     }
 
     private func setup(title: String, message: String, destination: CareerDestination) -> some View {

@@ -90,7 +90,8 @@ struct WealthCategoryCard<Content: View>: View {
             .padding(.horizontal, 22)
             .padding(.bottom, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .opacity(isExpanded ? 1 : 0)
+            // Keep content visible while cards move; overlapping cards and the
+            // stack's clipping conceal it as the selected arrangement closes.
             .allowsHitTesting(isExpanded)
             .accessibilityHidden(!isExpanded)
         }
