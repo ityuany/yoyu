@@ -70,6 +70,13 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swiftc \
 
 测试覆盖每秒增长、上下班边界、下班后封顶、休息日、整月总额、月中调薪、缺失生效日期及月内薪资、零工作日、节假日补班、未知年份与跨夜班次。页面可见且应用活跃时每秒刷新，后台不依赖定时累加，返回后直接从当前时间恢复。
 
+今日主题按收入快照的班次日期与实际工作状态选择；周末上班仍显示工作主题，工作日休息显示休息主题，不遵循节假日安排时不标为调休补班。节日名称仅作辅助标识，未知年份不推断节日。
+
+```sh
+swiftc yoyu/Models/ProfileRules.swift yoyu/Models/TodayMood.swift Tests/TodayMoodTests.swift -o /tmp/yoyu-today-mood-tests
+/tmp/yoyu-today-mood-tests
+```
+
 Debug 可传 `--today-at 2026-09-11T12:00:00+08:00` 预览工作中状态，页面明确显示预览标记；时间按秒前进，不修改系统时间和业务资料。正常启动不传参数，Release 不使用此参数。
 
 ## 股票与归属计划
