@@ -45,6 +45,7 @@ struct WealthView: View {
                             } content: {
                                 categoryContent(category)
                             }
+                            .padding(.horizontal, DashboardStyle.pageInset)
                             // Resolve the card as one geometry unit before moving it.
                             // Children must not animate their layout independently of the surface.
                             .transaction { $0.animation = nil }
@@ -71,7 +72,8 @@ struct WealthView: View {
                                      + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance))
                             .zIndex(Double(WealthCategory.allCases.count))
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .clipped()
+                    .padding(.horizontal, -DashboardStyle.pageInset)
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, DashboardStyle.pageInset)

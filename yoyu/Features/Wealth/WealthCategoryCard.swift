@@ -6,11 +6,11 @@ enum WealthCategory: String, CaseIterable, Identifiable {
     var id: Self { self }
     var title: String {
         switch self {
-        case .cash: "现金"
-        case .stocks: "股票"
-        case .investment: "理财"
-        case .compensation: "预计补偿"
-        case .debt: "负债"
+        case .cash: "灵活资金"
+        case .stocks: "股票资产"
+        case .investment: "理财产品"
+        case .compensation: "裁员补偿"
+        case .debt: "债务情况"
         }
     }
     var subtitle: String {
