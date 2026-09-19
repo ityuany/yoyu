@@ -36,18 +36,91 @@ struct ExpenseHomeSection: View {
     var body: some View {
         Group {
             if cardLayout {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("预计支出").font(.headline)
-                    VStack(alignment: .leading, spacing: 16) { rows }
-                        .buttonStyle(.plain)
-                    Text(footerText).font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 22)
+                ledger
+                    .padding(.horizontal, 22)
             } else {
                 Section { rows } header: { Text("预计支出") } footer: { Text(footerText) }
             }
         }
         .sheet(isPresented: $adding) { ExpenseEditor() }
+    }
+
+    private var ledger: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationLink { ExpectedExpenseView() } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("本月支出").font(.headline)
+                        Text("按已有计划预计").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 12)
+                    Text(ExpectedExpenseRules.total(expenses: records, liabilities: accounts, in: clock.now).map { ProfileRules.money($0) } ?? "待核对")
+                        .font(.system(.title3, design: .rounded).weight(.semibold))
+                        .monospacedDigit()
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                }
+                .padding(.bottom, 18)
+                .contentShape(Rectangle())
+            }
+            Divider()
+            ForEach(Array(accounts.prefix(3))) { account in
+                NavigationLink { LiabilityDetailView(accountID: account.id) } label: {
+                    ledgerRow(account.name, detail: "\(account.kind?.title ?? "负债")还款",
+                              icon: account.kind?.icon ?? "creditcard",
+                              amount: ExpectedExpenseRules.repayment(account, in: clock.now))
+                }
+            }
+            ForEach(Array(ExpenseRules.records(records).prefix(max(0, 3 - accounts.count)))) { record in
+                if let plan = record.plan {
+                    NavigationLink { ExpenseDetailView(recordID: record.id) } label: {
+                        ledgerRow(plan.name, detail: plan.estimated ? "预估开支" : "固定开支", icon: "repeat",
+                                  amount: ExpenseRules.amount(plan, in: clock.now))
+                    }
+                }
+            }
+            if accounts.isEmpty && records.isEmpty {
+                Text("安排生活费、租金或还款，让每月支出心中有数。")
+                    .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 18)
+            }
+            if ExpectedExpenseRules.missingBills(accounts) {
+                Label("部分账单待补全，仅计入已知金额", systemImage: "exclamationmark.circle")
+                    .font(.caption).foregroundStyle(.secondary).padding(.top, 10)
+            }
+            HStack {
+                NavigationLink { ExpectedExpenseView() } label: {
+                    HStack(spacing: 5) {
+                        Text("查看全部")
+                        Image(systemName: "arrow.up.right").font(.caption2)
+                    }.frame(minHeight: 44)
+                }
+                Spacer()
+                Button { adding = true } label: {
+                    Label("添加开支", systemImage: "plus").frame(minHeight: 44)
+                }
+            }
+            .font(.subheadline)
+            .padding(.top, 8)
+        }
+        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
+    }
+
+    private func ledgerRow(_ title: String, detail: String, icon: String, amount: Int64?) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.subheadline).foregroundStyle(.secondary).frame(width: 22)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.subheadline)
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Text(amount.map { ProfileRules.money($0) } ?? "待核对")
+                    .font(.subheadline).monospacedDigit()
+            }
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            Divider()
+        }
     }
 
     private var footerText: String {

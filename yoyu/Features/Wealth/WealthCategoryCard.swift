@@ -90,6 +90,7 @@ struct WealthCategoryCard<Content: View>: View {
             .padding(.horizontal, 22)
             .padding(.bottom, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .opacity(isExpanded ? 1 : 0)
             .allowsHitTesting(isExpanded)
             .accessibilityHidden(!isExpanded)
         }

@@ -24,11 +24,15 @@ struct WealthSummaryCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("总资产").font(.subheadline).foregroundStyle(.secondary)
+                HStack {
+                    Text("资产总览").font(.caption)
+                    Spacer()
+                    Text("人民币").font(.caption).foregroundStyle(.secondary)
+                }
                 DashboardAmount(value: amount)
-                Text("人民币 · 含税前预计补偿，不含未归属股票")
+                Text("含税前预计补偿 · 不含未归属股票")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -41,7 +45,7 @@ struct WealthSummaryCard: View {
                         : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
                     layout {
                         ForEach(composition.indices, id: \.self) { index in
-                            VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
                                 HStack(spacing: 6) {
                                     Circle().fill(composition[index].color)
                                         .frame(width: 6, height: 6)
@@ -51,7 +55,7 @@ struct WealthSummaryCard: View {
                                 }
                                 .font(.caption)
                                 Text((composition[index].amount / compositionTotal).formatted(.percent.precision(.fractionLength(1))))
-                                    .font(.subheadline.weight(.medium))
+                                    .font(.caption)
                                     .foregroundStyle(.primary)
                                     .monospacedDigit()
                             }
@@ -69,7 +73,7 @@ struct WealthSummaryCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 22)
         .padding(.vertical, 8)
     }
 }

@@ -35,7 +35,7 @@ struct WealthView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     WealthSummaryCard(amount: total.map { ProfileRules.money($0) } ?? (needsReview ? "待核对股票" : needsPrice ? "待补全股价" : "待填写"), composition: composition, needsPrice: needsPrice)
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 28)
 
                     ZStack(alignment: .top) {
                         ForEach(WealthCategory.allCases) { category in
@@ -54,29 +54,13 @@ struct WealthView: View {
                         }
                     }
                     .frame(height: CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
-                           + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance), alignment: .top)
+                           + 16 + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance), alignment: .top)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
                     .buttonStyle(.plain)
+
                     ExpenseHomeSection(cardLayout: true)
-                        .padding(.top, 24)
+                        .padding(.top, 32)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background {
-                            DashboardStyle.background
-                                .padding(.horizontal, -DashboardStyle.pageInset)
-                        }
-                        .overlay(alignment: .top) {
-                            LinearGradient(colors: [.clear, .black.opacity(0.12)],
-                                           startPoint: .top, endPoint: .bottom)
-                                .frame(height: 12)
-                                .offset(y: -12)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
-                        .overlay(alignment: .top) {
-                            Rectangle().fill(.primary.opacity(0.06)).frame(height: 0.5)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
-                        .zIndex(10)
                 }
                 .padding(.horizontal, DashboardStyle.pageInset)
                 .padding(.top, 20)
