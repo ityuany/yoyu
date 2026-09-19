@@ -68,23 +68,26 @@ struct ContentView: View {
         TabView(selection: $navigation.selectedTab) {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    if tab == .today {
-                        TodayView()
-                    } else if tab == .wealth {
-                        WealthView()
-                    } else if tab == .profile {
-                        ProfileView()
-                    } else {
-                        NavigationStack {
-                            DashboardStyle.background
-                                .ignoresSafeArea()
-                                .dashboardTabRoot(title: tab.title)
+                    Group {
+                        if tab == .today {
+                            TodayView()
+                        } else if tab == .wealth {
+                            WealthView()
+                        } else if tab == .profile {
+                            ProfileView()
+                        } else {
+                            NavigationStack {
+                                DashboardStyle.background
+                                    .ignoresSafeArea()
+                                    .dashboardTabRoot(title: tab.title)
+                            }
                         }
                     }
+                    .tint(DashboardStyle.accent)
                 }
             }
         }
-        .tint(DashboardStyle.accent)
+        .tint(DashboardStyle.tabSelection)
         .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         .environment(careerClock)
         .environment(navigation)

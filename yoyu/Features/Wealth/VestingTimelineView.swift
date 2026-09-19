@@ -89,7 +89,7 @@ private struct TimelineRowStyle: ViewModifier {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
             Image(systemName: isYear ? "diamond.fill" : "circle.fill")
                 .font(.system(size: 8))
-                .foregroundStyle(highlighted ? Color.blue : Color.secondary)
+                .foregroundStyle(highlighted ? DashboardStyle.accent : Color.secondary)
                 .frame(width: trackWidth)
                 .accessibilityHidden(true)
             content

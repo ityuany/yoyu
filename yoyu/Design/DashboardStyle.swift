@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Shared visual roles for overview and detail screens.
 enum DashboardStyle {
-    static let accent = adaptive(light: (0.19, 0.39, 0.49), dark: (0.55, 0.76, 0.87))
+    // Brand color is reserved for the selected bottom tab.
+    static let tabSelection = adaptive(light: (128.0 / 255, 0, 32.0 / 255), dark: (230.0 / 255, 160.0 / 255, 180.0 / 255))
+    static let accent = Color(uiColor: .label)
     static let background = Color(uiColor: .systemBackground)
     static let cash = adaptive(light: (0.39, 0.56, 0.49), dark: (0.56, 0.74, 0.65))
     static let stock = adaptive(light: (0.33, 0.48, 0.61), dark: (0.54, 0.71, 0.85))
