@@ -94,11 +94,12 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { careerClock.now = Date() }
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             // 页面保持打开或从后台恢复时，也刷新按生效日期读取的当前待遇。
             while !Task.isCancelled {
                 careerClock.now = Date()
-                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
             }
         }
     }

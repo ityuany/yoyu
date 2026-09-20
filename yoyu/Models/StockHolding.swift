@@ -153,7 +153,9 @@ enum StockRules {
         if let compensationCents, !(0...ProfileRules.maximumMoneyCents).contains(compensationCents) { return nil }
         let stocks = portfolio(holdings, profile: profile, on: date)
         if !holdings.isEmpty && stocks == nil { return nil }
-        let parts = [profile?.cashCents, stocks, profile?.investmentCents, compensationCents].compactMap { $0 }
+        let investment = profile?.investmentValue(on: date)
+        if profile?.investmentCents != nil && investment == nil { return nil }
+        let parts = [profile?.cashCents, stocks, investment, compensationCents].compactMap { $0 }
         guard !parts.isEmpty else { return nil }
         return rounded(parts.reduce(Decimal.zero) { $0 + Decimal($1) })
     }

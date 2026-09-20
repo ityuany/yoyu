@@ -16,6 +16,34 @@
 
 `simctl` 可用于设备查询、安装、启动、截图等；不要假设它提供通用的 `io tap` 命令。界面操作遵守当前桌面控制工具的要求。
 
+## 设备复用：操作前的必做检查
+
+1. 在构建、启动设备或打开模拟器前，先执行 `xcrun simctl list devices booted`，结合 Device Hub 当前窗口确认用户正在使用的设备。
+2. 已有可用设备时必须复用，记录其 **UDID**。构建的 `-destination 'platform=iOS Simulator,id=<UDID>'`，以及安装、启动、截图、录屏、外观切换等命令，全部显式指定这个 UDID，不使用含糊的 `booted` 或仅凭设备名称选择。
+3. 多台设备已启动时，优先使用用户明确指定或当前操作窗口对应的设备；无法确定时才询问，不能另开一台规避选择。
+4. 已有目标设备时，不再执行 `simctl boot`，不新建、克隆设备，也不通过通用的 `open -a Simulator` 意外打开另一套前端。优先连接现有 Device Hub 窗口。
+5. 仅在没有已启动设备时，选择现有的兼容设备并启动；若当前设备确实不兼容，先说明原因，在用户同意切换后再启动另一台。构建失败、签名失败、界面连接失败都不是换设备的理由。
+
+## 构建签名：安装前的必过关卡
+
+严格按 **确认设备 → 构建 → 确认产物 → 验签 → 安装 → 启动 → 实际界面验证** 的顺序执行。任一步失败就诊断该步骤，不继续安装旧产物或反复尝试启动。
+
+1. 模拟器构建显式使用 `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`（本地 ad-hoc 签名）。不得为了让构建通过设置 `CODE_SIGNING_ALLOWED=NO`。这些参数仅用于模拟器，不套用到真机或发布签名。
+2. 保存完整构建日志，检查命令退出码及 `BUILD SUCCEEDED`；“编译成功”不等于“产物有签名”或“应用可运行”。
+3. 使用与构建一致的项目、scheme、configuration、destination 和 DerivedData 参数读取 `-showBuildSettings`，从 `TARGET_BUILD_DIR` 与 `FULL_PRODUCT_NAME` 确定本次 `.app` 路径，从该产物的 Info.plist 读取 bundle ID。不得凭历史路径安装另一份构建。
+4. 对即将安装的实际 `.app` 执行以下检查，**两项均成功后才允许安装**：
+
+   ```sh
+   codesign --display --verbose=2 "$SIM_APP_PATH"
+   codesign --verify --deep --strict --verbose=2 "$SIM_APP_PATH"
+   ```
+
+   `SIM_APP_PATH` 必须来自本次构建。若出现 `code object is not signed at all` 或验证失败，不得继续安装、启动，也不得通过关闭系统安全检查绕过。
+5. 验签失败时先核对构建设置和日志中的 CodeSign 步骤。若旧增量产物仍无签名，用任务专用、全新的 DerivedData 目录重新构建，并重新定位产物、验签。不反复复用已证实异常的缓存，不删除用户其他任务的构建目录，不卸载应用或清空模拟器数据。
+6. 安装成功后再启动，核对启动结果及实际界面；必要时等待首页数据加载。启动失败要检查日志，不能将空白页或仅收到进程号当作界面验收通过。
+
+**2026-09-20 已验证经验：** 本项目曾出现 `BUILD SUCCEEDED` 但 `.app` 没有签名，模拟器启动报 `No such process`。在原增量目录补充签名参数后仍未恢复；改用全新 DerivedData 目录，显式启用模拟器 ad-hoc 签名，验签通过后在原设备安装、启动成功。这是已验证的恢复方法，不代表所有 `No such process` 都由签名导致；先检查证据，不盲目套用。
+
 ## 已验证的 Device Hub 故障及恢复办法
 
 以下结论来自 **2026-09-17、本机 Xcode 27.0（27A266a）/ macOS 27.0** 的实际排查，不应直接推广到其他版本。

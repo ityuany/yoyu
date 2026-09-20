@@ -10,9 +10,10 @@ struct InvestmentProjectionView: View {
     @State private var mode: InvestmentInterestMode = .simple
     @FocusState private var isEditing: Bool
 
-    init(principal: Int64?, annualRate: Int64?) {
+    init(principal: Int64?, annualRate: Int64?, mode: InvestmentInterestMode = .simple) {
         _principal = State(initialValue: principal.map { ProfileRules.input($0) } ?? "")
         _annualRate = State(initialValue: annualRate.map { ProfileRules.input($0) } ?? "")
+        _mode = State(initialValue: mode)
     }
 
     private var months: Int? {

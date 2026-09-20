@@ -26,6 +26,31 @@ import Foundation
         precondition(InvestmentProjection.calculate(principal: nil, rate: 500, months: 12, mode: .simple) == nil)
         precondition(InvestmentProjection.calculate(principal: 100, rate: nil, months: 12, mode: .simple) == nil)
         precondition(InvestmentProjection.presets == [3, 6, 12, 36, 60, 96, 120])
+        let start = ProfileRules.calendar.startOfDay(for: ProfileRules.date(2024, 1, 1))
+        let year: TimeInterval = 365 * 24 * 60 * 60
+        func live(_ elapsed: TimeInterval, compound: Bool = false, rate: Int64? = 500, principal: Int64? = 10_000_000, registration: Date? = start) -> Int64? {
+            ProfileRules.investmentValue(principal: principal, rate: rate, registration: registration,
+                                         compound: compound, on: start.addingTimeInterval(elapsed))
+        }
+        precondition(live(0) == 10_000_000)
+        precondition(live(-1) == 10_000_000)
+        precondition(live(year) == 10_500_000)
+        precondition(live(year * 2) == 11_000_000)
+        precondition(live(year * 2, compound: true) == 11_025_000)
+        precondition(live(year * 2.5, compound: true) == 11_300_625)
+        precondition(live(year, rate: -500) == 9_500_000)
+        precondition(live(year * 2, rate: -10_000) == 0)
+        precondition(live(year * 2, compound: true, rate: -10_000) == 0)
+        precondition(live(year, principal: nil) == nil)
+        precondition(live(year, rate: nil) == 10_000_000)
+        precondition(live(year, registration: nil) == 10_000_000)
+        precondition(live(year, rate: 0) == 10_000_000)
+        precondition(live(year, rate: 10_001) == nil)
+        precondition(live(year, principal: ProfileRules.maximumMoneyCents) == nil)
+        precondition(live(1, rate: 10_000, principal: 1_000_000_000)! > live(0, rate: 10_000, principal: 1_000_000_000)!)
+        precondition(live(year) == live(year), "Reading estimates must be deterministic")
+        // Date selection means midnight, including a leap-year date; year length stays 365 days.
+        precondition(live(year, registration: start.addingTimeInterval(43200)) == 10_500_000)
         print("InvestmentProjectionTests passed")
     }
 }

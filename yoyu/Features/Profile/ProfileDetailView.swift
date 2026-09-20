@@ -82,7 +82,9 @@ struct ProfileDetailView: View {
                 Button("前往财富管理股票") { navigation.openStocks() }
             }
             Section("理财") {
-                LabeledContent("当前金额", value: ProfileRules.money(profile?.investmentCents))
+                LabeledContent("当前估算金额", value: ProfileRules.money(profile?.investmentValue(on: clock.now)))
+                LabeledContent("初始本金", value: ProfileRules.money(profile?.investmentCents))
+                LabeledContent("登记日期", value: profile?.investmentRegistrationDate.map { CareerRules.dateLabel($0) } ?? "待补登记日期")
                 LabeledContent("年化收益率", value: profile?.investmentAnnualReturnBasisPoints.map {
                     "\(ProfileRules.input($0))%"
                 } ?? "待填写")

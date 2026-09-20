@@ -44,11 +44,15 @@ struct ProfilePersistenceTests {
             precondition(profiles[0].stockValueCents == 20002)
             precondition(profiles[0].stockSharesHundredths == nil)
             precondition(profiles[0].investmentAnnualReturnBasisPoints == nil)
+            precondition(profiles[0].investmentRegistrationDate == nil)
+            precondition(profiles[0].investmentInterestMode == "单利")
             precondition(profiles[0].workweekMask == 126)
             precondition(profiles[0].workweek.contains(.saturday) && !profiles[0].workweek.contains(.sunday))
             profiles[0].stockSharesHundredths = 10000
             profiles[0].stockPriceCents = 1234
             profiles[0].investmentAnnualReturnBasisPoints = -250
+            profiles[0].investmentRegistrationDate = ProfileRules.date(2026, 9, 1)
+            profiles[0].investmentInterestMode = "复利"
             precondition(profiles[0].stockValueCents == 123400)
             precondition(profiles[0].totalWealth == 133401)
             let overrides = try context.fetch(FetchDescriptor<WorkdayOverride>())
@@ -67,6 +71,8 @@ struct ProfilePersistenceTests {
             precondition(profile.stockPriceCents == 1234)
             precondition(profile.stockValueCents == 123400)
             precondition(profile.investmentAnnualReturnBasisPoints == -250)
+            precondition(profile.investmentRegistrationDate == ProfileRules.date(2026, 9, 1))
+            precondition(profile.investmentInterestMode == "复利")
             profile.stockPriceCents = 2468
             precondition(profile.stockValueCents == 246800)
             precondition(profile.totalWealth == 256801)

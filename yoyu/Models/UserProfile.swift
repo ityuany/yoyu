@@ -26,12 +26,22 @@ final class UserProfile {
     var stockPriceCents: Int64?
     var investmentCents: Int64?
     var investmentAnnualReturnBasisPoints: Int64?
+    var investmentRegistrationDate: Date?
+    var investmentInterestMode: String = "单利"
     var workweekMask: Int = Workweek.default.mask
     var startMinutes: Int = 540
     var endMinutes: Int = 1080
     var followsHolidays: Bool = true
 
     init() {}
+
+    func investmentValue(on date: Date) -> Int64? {
+        guard ["单利", "复利"].contains(investmentInterestMode) else { return nil }
+        return ProfileRules.investmentValue(principal: investmentCents,
+                                            rate: investmentAnnualReturnBasisPoints,
+                                            registration: investmentRegistrationDate,
+                                            compound: investmentInterestMode == "复利", on: date)
+    }
 
     var retirement: String {
         ProfileRules.statutoryRetirement(year: birthYear, month: birthMonth, gender: gender, femaleAge: femaleRetirementAge)
@@ -48,7 +58,9 @@ final class UserProfile {
     var totalWealth: Int64? {
         guard cashCents != nil || stockValueCents != nil || investmentCents != nil else { return nil }
         // 未填写的资产不等同于错误，汇总时按 0 处理；三个项目都未填才不显示总额。
-        return (cashCents ?? 0) + (stockValueCents ?? 0) + (investmentCents ?? 0)
+        let investment = investmentValue(on: Date())
+        if investmentCents != nil && investment == nil { return nil }
+        return (cashCents ?? 0) + (stockValueCents ?? 0) + (investment ?? 0)
     }
 }
 

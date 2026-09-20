@@ -19,6 +19,9 @@ private struct ProfileDraft {
     var legacyStockCents: Int64?
     var investment = ""
     var annualReturn = ""
+    var hasInvestmentDate = true
+    var investmentDate = Date()
+    var investmentMode = InvestmentInterestMode.simple
     var workweek = Workweek.default
     var startMinutes = 540
     var endMinutes = 1080
@@ -45,6 +48,9 @@ private struct ProfileDraft {
         }
         investment = ProfileRules.input(profile.investmentCents)
         annualReturn = ProfileRules.input(profile.investmentAnnualReturnBasisPoints)
+        hasInvestmentDate = profile.investmentRegistrationDate != nil || profile.investmentCents == nil
+        investmentDate = profile.investmentRegistrationDate ?? Date()
+        investmentMode = InvestmentInterestMode(rawValue: profile.investmentInterestMode) ?? .simple
         workweek = profile.workweek
         startMinutes = profile.startMinutes
         endMinutes = profile.endMinutes
@@ -151,10 +157,19 @@ struct ProfileEditor: View {
             }
             if wealthScope != .cash {
             Section {
-                numberField("当前金额", text: $draft.investment, unit: "元")
+                numberField("初始本金", text: $draft.investment, unit: "元")
                 numberField("年化收益率", text: $draft.annualReturn, unit: "%", allowsNegative: true)
+                Toggle("设置登记日期", isOn: $draft.hasInvestmentDate)
+                if draft.hasInvestmentDate {
+                    DatePicker("登记日期", selection: $draft.investmentDate, in: ...clock.now, displayedComponents: .date)
+                }
+                Picker("计息方式", selection: $draft.investmentMode) {
+                    ForEach(InvestmentInterestMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
             } header: { Text("理财") } footer: {
-                Text("年化收益率按百分比填写，例如 3.5 表示 3.5%，支持负值。收益率单独保存，当前财富仍按当前金额汇总。")
+                Text("从登记日零点起估算，一年按 365 天。单利按本金计息；复利每年复投，未满一年按时间比例折算。未设置日期或收益率时保留本金。修改配置会从登记日重新计算。")
             }
             }
             Section {
@@ -188,7 +203,7 @@ struct ProfileEditor: View {
     }
     /// 将已填写的现金、股票和理财金额求和，空字段不纳入汇总。
     private var wealthTotal: Int64? {
-        let values = [ProfileRules.scaledValue(draft.cash), stockValue, ProfileRules.scaledValue(draft.investment)].compactMap { $0 }
+        let values = [ProfileRules.scaledValue(draft.cash), stockValue, draftInvestmentValue].compactMap { $0 }
         return values.isEmpty ? nil : values.reduce(0, +)
     }
     private var validationError: String? {
@@ -207,6 +222,9 @@ struct ProfileEditor: View {
         case .work, .employment:
             return "请在企业履历中编辑。"
         case .wealth:
+            if wealthScope != .cash && draft.hasInvestmentDate && ProfileRules.calendar.startOfDay(for: draft.investmentDate) > clock.now {
+                return "登记日期不能晚于今天。"
+            }
             if wealthScope != .cash && !draft.annualReturn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ProfileRules.annualReturnRate(draft.annualReturn) == nil {
                 return "年化收益率请输入 -100—100，最多两位小数。"
             }
@@ -219,7 +237,18 @@ struct ProfileEditor: View {
                     : "\(name)请输入有效的非负金额，最多两位小数且不超过 1000 亿元。"
             }
         }
+        if section == .wealth && wealthScope != .cash,
+           ProfileRules.scaledValue(draft.investment) != nil && draftInvestmentValue == nil {
+            return "当前估算金额超出支持范围，请检查本金、日期与收益率。"
+        }
         return nil
+    }
+
+    private var draftInvestmentValue: Int64? {
+        ProfileRules.investmentValue(principal: ProfileRules.scaledValue(draft.investment),
+                                     rate: ProfileRules.annualReturnRate(draft.annualReturn),
+                                     registration: draft.hasInvestmentDate ? draft.investmentDate : nil,
+                                     compound: draft.investmentMode == .compound, on: clock.now)
     }
 
     private func save() {
@@ -239,6 +268,8 @@ struct ProfileEditor: View {
             if wealthScope != .cash {
                 record.investmentCents = ProfileRules.scaledValue(draft.investment)
                 record.investmentAnnualReturnBasisPoints = ProfileRules.annualReturnRate(draft.annualReturn)
+                record.investmentRegistrationDate = draft.hasInvestmentDate ? ProfileRules.calendar.startOfDay(for: draft.investmentDate) : nil
+                record.investmentInterestMode = draft.investmentMode.rawValue
             }
         case .work, .employment:
             return

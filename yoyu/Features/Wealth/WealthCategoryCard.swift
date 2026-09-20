@@ -17,7 +17,7 @@ enum WealthCategory: String, CaseIterable, Identifiable {
         switch self {
         case .cash: "日常储备"
         case .stocks: "已归属价值"
-        case .investment: "当前持有"
+        case .investment: "当前估算金额"
         case .compensation: "未来资产 · 税前估算"
         case .debt: "还款与账单"
         }
@@ -98,6 +98,9 @@ struct WealthCategoryCard<Content: View>: View {
             .font(.subheadline)
             .padding(.horizontal, 22)
             .padding(.bottom, 22)
+            .frame(minHeight: category == .stocks || category == .investment
+                   ? WealthCardGeometry.minimumHeight(for: category) - WealthCardGeometry.headerHeight
+                   : nil, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             // Keep content visible while cards move; overlapping cards and the
             // stack's clipping conceal it as the selected arrangement closes.

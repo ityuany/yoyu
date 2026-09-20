@@ -191,7 +191,7 @@ struct WealthView: View {
         switch category {
         case .cash: profile?.cashCents.map { ProfileRules.money($0) } ?? "待填写"
         case .stocks: stockValue.map { ProfileRules.money($0) } ?? (needsReview ? "待核对" : needsPrice ? "待补全股价" : "待记录")
-        case .investment: profile?.investmentCents.map { ProfileRules.money($0) } ?? "待填写"
+        case .investment: profile?.investmentValue(on: clock.now).map { ProfileRules.money($0) } ?? "待填写"
         case .compensation: compensation.map { ProfileRules.money($0) } ?? "待完善"
         case .debt: liabilities.isEmpty ? "待记录" : LiabilityRules.total(liabilities, on: clock.now).map { ProfileRules.money($0) } ?? "待核对"
         }
@@ -209,21 +209,46 @@ struct WealthView: View {
                 Label(profile?.cashCents == nil ? "添加现金余额" : "更新现金余额", systemImage: "plus.circle")
             }
         case .stocks:
+            LabeledContent("已归属股数", value: stockShareCount(unvested: false))
+                .monospacedDigit()
+            LabeledContent("未归属股数", value: stockShareCount(unvested: true))
+                .monospacedDigit()
+            LabeledContent("已归属价值", value: ProfileRules.money(stockValue))
+                .monospacedDigit()
             LabeledContent("未归属价值", value: ProfileRules.money(StockRules.portfolio(holdings, profile: profile, on: clock.now, unvested: true)))
                 .monospacedDigit()
             Text(needsReview ? "旧股票记录待核对，暂不计算汇总。" : "总资产仅计入已归属部分，按手动设置的股价估算。")
                 .font(.caption).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
             NavigationLink(value: WealthDestination.stocks) {
-                detailLink(holdings.isEmpty ? "记录股票激励" : "查看公司与归属计划", icon: "chart.bar")
+                Text("查看股票详情")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
             }
+            .accessibilityHint("查看各公司股票和归属计划")
         case .investment:
             LabeledContent("年化收益率", value: profile?.investmentAnnualReturnBasisPoints.map { "\(ProfileRules.input($0))%" } ?? "待填写")
                 .monospacedDigit()
-            NavigationLink { WealthAssetDetailView(asset: .investment) } label: {
-                detailLink("理财详情与收益测算", icon: "chart.line.uptrend.xyaxis")
+            LabeledContent("预计年收益", value: ProfileRules.money(InvestmentProjection.calculate(
+                principal: profile?.investmentCents,
+                rate: profile?.investmentAnnualReturnBasisPoints,
+                months: 12, mode: InvestmentInterestMode(rawValue: profile?.investmentInterestMode ?? "") ?? .simple)?.earningsCents))
+                .monospacedDigit()
+            Text("年收益按初始本金估算；卡片金额包含自登记日起的累计估算收益。")
+                .font(.caption).foregroundStyle(.secondary)
+            if profile?.investmentCents != nil && (profile?.investmentRegistrationDate == nil || profile?.investmentAnnualReturnBasisPoints == nil) {
+                Text("待补登记日期或收益率，当前暂按本金显示。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Button { editingAsset = .investment } label: {
-                Label(profile?.investmentCents == nil ? "添加理财资产" : "更新理财资产", systemImage: "plus.circle")
+            Spacer(minLength: 0)
+            NavigationLink { WealthAssetDetailView(asset: .investment) } label: {
+                Text("查看理财详情")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
             }
         case .compensation:
             Text("根据当前任职和补偿方案估算，尚未实际到账。")
@@ -250,6 +275,18 @@ struct WealthView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func stockShareCount(unvested: Bool) -> String {
+        let rows = StockRules.holdings(holdings)
+        guard !StockRules.needsLegacyReview(rows, profile: profile) else { return "待核对" }
+        guard !rows.isEmpty else { return "待记录" }
+        var total = Decimal.zero
+        for holding in rows {
+            guard let balance = StockRules.balance(holding, on: clock.now) else { return "待补全" }
+            total += Decimal(unvested ? balance.unvestedShares : balance.vestedShares)
+        }
+        return (total / 100).formatted(.number.precision(.fractionLength(0...2))) + " 股"
     }
 
     private func detailLink(_ title: String, icon: String, value: String? = nil) -> some View {

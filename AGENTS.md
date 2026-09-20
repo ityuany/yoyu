@@ -20,7 +20,7 @@
 
 ## 模拟器交互与故障排查
 
-操作模拟器时，遵循 [模拟器交互流程](.agent/references/simulator-interaction.md)。包含已验证的 Device Hub 连接方式，以及启动器导致进程识别异常时的恢复步骤。
+操作模拟器时，必须遵循 [模拟器交互流程](.agent/references/simulator-interaction.md)：先识别并复用用户已启动的设备，全程使用同一 UDID；构建成功后必须验证实际安装产物的签名，通过后才能安装和启动。不得因构建或连接失败擅自启动第二台模拟器。该文件还包含 Device Hub 连接与故障恢复步骤。
 
 ## 杂项
 

@@ -25,6 +25,16 @@ import SwiftData
         let profile = UserProfile()
         profile.cashCents = 100_000
         profile.investmentCents = 200_000
+        let investmentStart = ProfileRules.calendar.startOfDay(for: before)
+        profile.investmentRegistrationDate = investmentStart
+        profile.investmentAnnualReturnBasisPoints = 500
+        profile.investmentInterestMode = "复利"
+        let investmentLater = investmentStart.addingTimeInterval(365 * 24 * 60 * 60 * 2)
+        precondition(StockRules.wealth([], profile: profile, on: investmentLater) == 320_500)
+        precondition(profile.investmentCents == 200_000, "Accrual must not mutate principal")
+        profile.investmentRegistrationDate = nil
+        profile.investmentAnnualReturnBasisPoints = nil
+        profile.investmentInterestMode = "单利"
         precondition(StockRules.wealth([holding], profile: profile, on: before) == 20_300_000)
         precondition(StockRules.wealth([holding], profile: profile, on: before, compensationCents: 3_000_000) == 23_300_000)
         precondition(StockRules.wealth([holding], profile: profile, on: before, compensationCents: 0) == 20_300_000)

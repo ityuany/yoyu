@@ -3,6 +3,33 @@ import Foundation
 /// 个人资料页面使用的纯业务规则。
 /// 金额、股票数量和百分比统一用整数保存：金额以“分”为单位，百分比以“万分之一”为单位，避免小数精度误差。
 enum ProfileRules {
+    /// 以登记日上海时间零点起算，一年按 365 天；复利每满一年复投。
+    /// 金额按时间推导，绝不写回本金；负收益最多损失本金。
+    static func investmentValue(principal: Int64?, rate: Int64?, registration: Date?, compound: Bool, on date: Date) -> Int64? {
+        guard let principal, (0...maximumMoneyCents).contains(principal) else { return nil }
+        guard let registration, let rate else { return principal }
+        guard (-10_000...10_000).contains(rate),
+              registration.timeIntervalSince1970.isFinite, date.timeIntervalSince1970.isFinite else { return nil }
+        let elapsed = max(0, date.timeIntervalSince(calendar.startOfDay(for: registration)))
+        let years = elapsed / (365 * 24 * 60 * 60)
+        guard years <= 1000 else { return nil }
+        let r = Decimal(rate) / 10_000
+        var total = Decimal(principal)
+        if compound {
+            for _ in 0..<Int(years) {
+                total *= 1 + r
+                guard total <= Decimal(maximumMoneyCents) else { return nil }
+            }
+            total *= 1 + r * Decimal(years - Double(Int(years)))
+        } else {
+            total *= max(0, 1 + r * Decimal(years))
+        }
+        guard !total.isNaN, total >= 0, total <= Decimal(maximumMoneyCents) else { return nil }
+        var rounded = Decimal.zero
+        NSDecimalRound(&rounded, &total, 0, .plain)
+        return NSDecimalNumber(decimal: rounded).int64Value
+    }
+
     static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
