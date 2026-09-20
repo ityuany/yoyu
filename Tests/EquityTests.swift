@@ -42,6 +42,20 @@ import SwiftData
         precondition(generated.count == 3 && ProfileRules.calendar.component(.day, from: generated[1].date) == 28)
         precondition(ProfileRules.calendar.component(.day, from: generated[2].date) == 31)
         precondition(EquityRules.generate(first: day, count: 121, months: 1, shares: 10).isEmpty)
+        for (total, expected) in [(10_000, [2_500, 2_500, 2_500, 2_500]),
+                                  (10_100, [2_500, 2_500, 2_500, 2_600]),
+                                  (10_300, [2_500, 2_500, 2_500, 2_800]),
+                                  (400, [100, 100, 100, 100])] {
+            let split = EquityRules.splitFour(first: day, months: 12, total: Int64(total))
+            precondition(split.map(\.shares) == expected.map(Int64.init))
+            precondition(split.reduce(0) { $0 + $1.shares } == Int64(total))
+            precondition(split.allSatisfy { $0.shares % 100 == 0 })
+            precondition(split[1].date == future)
+        }
+        for invalid: Int64 in [0, -100, 300, 10_150, Int64.max] {
+            precondition(EquityRules.splitFour(first: day, months: 12, total: invalid).isEmpty)
+        }
+        precondition(EquityRules.splitFour(first: day, months: 2, total: 10_000).isEmpty)
         let old = StockHolding()
         old.baselineDate = day
         old.priceCents = 100

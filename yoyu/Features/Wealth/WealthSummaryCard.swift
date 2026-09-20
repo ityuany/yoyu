@@ -45,7 +45,7 @@ struct WealthSummaryCard: View {
                         : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
                     layout {
                         ForEach(composition.indices, id: \.self) { index in
-                            HStack(spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 HStack(spacing: 6) {
                                     Circle().fill(composition[index].color)
                                         .frame(width: 6, height: 6)
@@ -58,6 +58,8 @@ struct WealthSummaryCard: View {
                                     .font(.caption)
                                     .foregroundStyle(.primary)
                                     .monospacedDigit()
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityElement(children: .combine)

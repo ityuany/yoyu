@@ -7,6 +7,44 @@ private struct InstallmentDraft: Identifiable {
     var quantity = ""
     var cancelled = false
 }
+private struct FourPeriodGenerator: View {
+    let quantity: String
+    let grantDate: Date
+    @Binding var entries: [InstallmentDraft]
+    @State private var first = Date()
+    @State private var months = 12
+
+    private var plan: [EquityInstallment] {
+        guard let total = ProfileRules.scaledValue(quantity) else { return [] }
+        return EquityRules.splitFour(first: first, months: months, total: total)
+    }
+
+    var body: some View {
+        DatePicker("首次归属", selection: $first, in: grantDate..., displayedComponents: .date)
+        Picker("归属间隔", selection: $months) {
+            Text("每月").tag(1)
+            Text("每季度").tag(3)
+            Text("每年").tag(12)
+        }
+        Text("按总量的 25% 拆分，前三期向下取整，余数放入第 4 期。")
+            .font(.caption).foregroundStyle(.secondary)
+        if plan.isEmpty {
+            Text("请输入至少 4 股的整数总量；零碎股可使用逐笔添加。")
+                .font(.caption).foregroundStyle(.secondary)
+        } else {
+            ForEach(Array(plan.enumerated()), id: \.offset) { index, entry in
+                LabeledContent("第 \(index + 1) 期", value: "\(ProfileRules.input(entry.shares)) 股")
+            }
+        }
+        Button(entries.isEmpty ? "生成 4 期归属" : "按总量重新生成 4 期（替换列表）") {
+            entries = plan.map { InstallmentDraft(date: $0.date, quantity: ProfileRules.input($0.shares)) }
+        }
+        .disabled(plan.isEmpty)
+        .onAppear { first = max(first, grantDate) }
+        .onChange(of: grantDate) { _, value in first = max(first, value) }
+    }
+}
+
 struct EquityGrantEditor: View {
     let holding: StockHolding
     let companyName: String
@@ -55,7 +93,7 @@ struct EquityGrantEditor: View {
                     equityField("授予总量（股）", text: $quantity)
                 }
                 Section {
-                    Picker("录入方式", selection: $mode) { Text("逐笔添加").tag(0); Text("按周期生成").tag(1) }.pickerStyle(.segmented)
+                    Picker("录入方式", selection: $mode) { Text("逐笔添加").tag(0); Text("按周期生成").tag(1); if existing == nil { Text("总量分 4 期").tag(2) } }.pickerStyle(.segmented)
                     if mode == 1 {
                         DatePicker("首次归属", selection: $first, displayedComponents: .date)
                         Picker("周期", selection: $months) { Text("每月").tag(1); Text("每季度").tag(3); Text("每年").tag(12) }
@@ -66,6 +104,9 @@ struct EquityGrantEditor: View {
                             entries += EquityRules.generate(first: first, count: count, months: months, shares: q).map { InstallmentDraft(date: $0.date, quantity: ProfileRules.input($0.shares)) }
                             mode = 0
                         }.disabled(ProfileRules.scaledValue(perPeriod).map { $0 <= 0 } ?? true)
+                    }
+                    if mode == 2 {
+                        FourPeriodGenerator(quantity: quantity, grantDate: date, entries: $entries)
                     }
                     ForEach($entries) { $entry in
                         VStack(spacing: 12) {
@@ -124,6 +165,7 @@ struct EquityPriceEditor: View {
     @State private var grantName = "首次授予"
     @State private var grantDate = Date()
     @State private var grantQuantity = ""
+    @State private var grantMode = 0
     @State private var grantEntries: [InstallmentDraft] = []
     @State private var error: String?
     init(holding: StockHolding?, job: Employment? = nil, onSaved: ((String) -> Void)? = nil) {
@@ -182,6 +224,13 @@ struct EquityPriceEditor: View {
                         equityField("授予总量（股）", text: $grantQuantity)
                     }
                     Section {
+                        Picker("录入方式", selection: $grantMode) {
+                            Text("逐笔添加").tag(0)
+                            Text("总量分 4 期").tag(1)
+                        }.pickerStyle(.segmented)
+                        if grantMode == 1 {
+                            FourPeriodGenerator(quantity: grantQuantity, grantDate: grantDate, entries: $grantEntries)
+                        }
                         ForEach($grantEntries) { $entry in
                             VStack(spacing: 12) {
                                 DatePicker("归属日期", selection: $entry.date, displayedComponents: .date)
@@ -197,7 +246,7 @@ struct EquityPriceEditor: View {
                             LabeledContent("待安排", value: "\(ProfileRules.input(EquityRules.unallocated(firstGrant))) 股")
                         }
                     } header: { Text("归属计划") } footer: {
-                        Text("按期填写日期与数量。未安排部分计入未归属，保存后可继续添加批次或按周期生成计划。")
+                        Text("可逐笔填写，或按总量生成 4 期后调整日期与数量。修改总量后请重新生成；未安排部分计入未归属。")
                     }
                     if let grantError { Text(grantError).font(.caption).foregroundStyle(.secondary) }
                 } else {

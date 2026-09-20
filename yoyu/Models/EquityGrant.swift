@@ -34,6 +34,15 @@ enum EquityRules {
         guard error(grant) == nil else { return 0 }
         return grant.shares - grant.installments.reduce(0) { $0 + $1.shares }
     }
+    /// Quantities use hundredths of a share; round the first three periods down to whole shares.
+    static func splitFour(first: Date, months: Int, total: Int64) -> [EquityInstallment] {
+        guard total >= 400, total <= ProfileRules.maximumMoneyCents, total % 100 == 0 else { return [] }
+        let portion = (total / 100 / 4) * 100
+        var result = generate(first: first, count: 4, months: months, shares: portion)
+        guard result.count == 4 else { return [] }
+        result[3].shares = total - portion * 3
+        return result
+    }
     static func generate(first: Date, count: Int, months: Int, shares: Int64) -> [EquityInstallment] {
         guard (1...120).contains(count), shares > 0, [1,3,12].contains(months) else { return [] }
         return (0..<count).compactMap { index in

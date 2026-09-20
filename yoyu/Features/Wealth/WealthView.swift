@@ -11,6 +11,7 @@ struct WealthView: View {
     @Environment(CareerClock.self) private var clock
 
     @State private var expandedCategory: WealthCategory?
+    @State private var cardHeights: [WealthCategory: CGFloat] = [:]
     @State private var editingAsset: WealthEditScope?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -46,10 +47,26 @@ struct WealthView: View {
                                 categoryContent(category)
                             }
                             .padding(.horizontal, DashboardStyle.pageInset)
+                            .onGeometryChange(for: CGFloat.self) { proxy in
+                                proxy.size.height
+                            } action: { height in
+                                cardHeights[category] = height
+                            }
+                            .background(alignment: .top) {
+                                // This opaque tail shares the card's z-order and translation,
+                                // but never contributes to layout or intercepts a touch.
+                                DashboardStyle.background
+                                    .frame(height: occlusionHeight)
+                                    // Begin behind the bottom corners so taller cards cannot leak there.
+                                    .offset(y: cardHeight(category) - 28)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
                             // Resolve the card as one geometry unit before moving it.
                             // Children must not animate their layout independently of the surface.
                             .transaction { $0.animation = nil }
                             .geometryGroup()
+                            .frame(height: 0, alignment: .top)
                             .offset(y: cardOffset(category))
                             .zIndex(Double(WealthCategory.allCases.firstIndex(of: category)!))
                         }
@@ -66,10 +83,17 @@ struct WealthView: View {
                                     .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                                     .allowsHitTesting(false)
                             }
+                            .background(alignment: .top) {
+                                DashboardStyle.background
+                                    .frame(height: occlusionHeight)
+                                    .offset(y: 28)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
                             .transaction { $0.animation = nil }
                             .geometryGroup()
                             .padding(.top, CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
-                                     + (expandedCategory == nil ? 0 : WealthCardGeometry.revealDistance))
+                                     + expandedRevealDistance)
                             .zIndex(Double(WealthCategory.allCases.count))
                     }
                     .clipped()
@@ -124,13 +148,29 @@ struct WealthView: View {
         return assets - debts
     }
 
+    private func cardHeight(_ category: WealthCategory) -> CGFloat {
+        cardHeights[category] ?? WealthCardGeometry.minimumHeight(for: category)
+    }
+
+    private var expandedRevealDistance: CGFloat {
+        guard let expandedCategory else { return 0 }
+        return cardHeight(expandedCategory) - WealthCardGeometry.headerHeight + WealthCardGeometry.gap
+    }
+
+    private var occlusionHeight: CGFloat {
+        // Bound both the largest surface and the largest animated translation.
+        // Using every card keeps this coverage stable when selection changes.
+        let tallest = WealthCategory.allCases.map { cardHeight($0) }.max() ?? WealthCardGeometry.minimumHeight
+        return tallest * 2 + CGFloat(WealthCategory.allCases.count) * WealthCardGeometry.headerHeight
+    }
+
     private func cardOffset(_ category: WealthCategory) -> CGFloat {
         let categories = WealthCategory.allCases
         guard let index = categories.firstIndex(of: category) else { return 0 }
         let expandedIndex = expandedCategory.flatMap { categories.firstIndex(of: $0) }
         let isBelowExpanded = expandedIndex.map { index > $0 } ?? false
         return CGFloat(index) * WealthCardGeometry.headerHeight
-            + (isBelowExpanded ? WealthCardGeometry.revealDistance : 0)
+            + (isBelowExpanded ? expandedRevealDistance : 0)
     }
 
     private func categoryAmount(_ category: WealthCategory) -> String {

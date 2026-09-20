@@ -45,10 +45,20 @@ enum WealthCategory: String, CaseIterable, Identifiable {
 }
 
 enum WealthCardGeometry {
-    static let height: CGFloat = 280
+    static let minimumHeight: CGFloat = 250
     static let headerHeight: CGFloat = 64
     static let gap: CGFloat = 12
-    static let revealDistance = height - headerHeight + gap
+
+    // Deliberately different floors for reviewing tall-to-short transitions.
+    // Content can grow beyond these floors without changing the stack algorithm.
+    static func minimumHeight(for category: WealthCategory) -> CGFloat {
+        switch category {
+        case .stocks: 600
+        case .investment: 300
+        case .compensation: 400
+        default: minimumHeight
+        }
+    }
 }
 
 struct WealthCategoryCard<Content: View>: View {
@@ -84,18 +94,18 @@ struct WealthCategoryCard<Content: View>: View {
             VStack(alignment: .leading, spacing: 16) {
                 Rectangle().fill(category.ink(dark: dark).opacity(0.12)).frame(height: 1)
                 content
-                Spacer(minLength: 0)
             }
             .font(.subheadline)
             .padding(.horizontal, 22)
             .padding(.bottom, 22)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             // Keep content visible while cards move; overlapping cards and the
             // stack's clipping conceal it as the selected arrangement closes.
             .allowsHitTesting(isExpanded)
             .accessibilityHidden(!isExpanded)
         }
-        .frame(height: WealthCardGeometry.height, alignment: .top)
+        .frame(minHeight: WealthCardGeometry.minimumHeight(for: category), alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(category.ink(dark: dark))
         .background(category.fill(dark: dark), in: RoundedRectangle(cornerRadius: 28))
         .overlay {
