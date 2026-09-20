@@ -1,75 +1,46 @@
 import SwiftUI
 
-/// Keeps the total prominent, with a compact breakdown of known assets.
+/// A compact overview; category cards provide the detailed balances.
 struct WealthSummaryCard: View {
     let amount: String
-    let composition: [(name: String, amount: Double, color: Color)]
-    let needsPrice: Bool
+    let debt: String
+    let netWorth: String
+    let notice: String?
+    @State private var showingScope = false
     @Environment(\.dynamicTypeSize) private var typeSize
-    private var compositionTotal: Double { composition.reduce(0) { $0 + $1.amount } }
-    private var compositionIsPartial: Bool { composition.count < 4 }
-    private var compositionChart: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                ForEach(composition.indices, id: \.self) { index in
-                    Rectangle()
-                        .fill(composition[index].color)
-                        .frame(width: geometry.size.width * composition[index].amount / compositionTotal)
-                }
-            }
-            .clipShape(Capsule())
-        }
-        .frame(height: 6)
-        .accessibilityHidden(true)
-    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("资产总览").font(.caption)
-                    Spacer()
-                    Text("人民币").font(.caption).foregroundStyle(.secondary)
-                }
-                DashboardAmount(value: amount)
-                Text("含税前预计补偿 · 不含未归属股票")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-
-            if compositionTotal > 0 {
-                VStack(alignment: .leading, spacing: 12) {
-                    compositionChart
-                    let layout = typeSize.isAccessibilitySize
-                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-                        : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-                    layout {
-                        ForEach(composition.indices, id: \.self) { index in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack(spacing: 6) {
-                                    Circle().fill(composition[index].color)
-                                        .frame(width: 6, height: 6)
-                                        .accessibilityHidden(true)
-                                    Text(composition[index].name)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .font(.caption)
-                                Text((composition[index].amount / compositionTotal).formatted(.percent.precision(.fractionLength(1))))
-                                    .font(.caption)
-                                    .foregroundStyle(.primary)
-                                    .monospacedDigit()
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityElement(children: .combine)
-                        }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("已记录资产")
+                Spacer()
+                Button { showingScope = true } label: {
+                    HStack(spacing: 6) {
+                        Text("人民币")
+                        Image(systemName: "info.circle")
                     }
+                    .foregroundStyle(.secondary)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看资产统计口径")
+                .padding(.vertical, -12)
+            }
+            .font(.caption)
+
+            DashboardAmount(value: amount)
+
+            let layout = typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 20))
+            layout {
+                metric("负债", value: debt)
+                metric("净值", value: netWorth)
             }
 
-            if compositionIsPartial {
-                Text(needsPrice ? "部分公司股价待补全，合计暂不可用。占比仅含已知资产。" : "待填写的类别暂未计入，占比仅含已知资产。")
+            if let notice {
+                Text(notice)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -77,5 +48,21 @@ struct WealthSummaryCard: View {
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 8)
+        .alert("资产统计口径", isPresented: $showingScope) {
+            Button("知道了", role: .cancel) { }
+        } message: {
+            Text("已记录资产包含现金、已归属股票估值和理财。净值为已记录资产减去已记录负债。\n\n两者均不含房产、未归属股票及预计补偿。预计补偿为税前估算、尚未到账，可在下方裁员补偿卡片查看。\n\n未填写的资产类别暂未计入；未记录负债时暂不显示净值。")
+        }
+    }
+
+    private func metric(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(title).foregroundStyle(.secondary)
+            Text(value).monospacedDigit()
+        }
+        .font(.subheadline)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .accessibilityElement(children: .combine)
     }
 }

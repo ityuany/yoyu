@@ -19,15 +19,16 @@ struct WealthView: View {
     private var stockValue: Int64? { StockRules.portfolio(holdings, profile: profile, on: clock.now) }
     private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, now: clock.now) }
     private var compensation: Int64? { scenario.estimate?.amountCents }
-    private var total: Int64? { StockRules.wealth(holdings, profile: profile, on: clock.now, compensationCents: compensation) }
+    private var total: Int64? { StockRules.wealth(holdings, profile: profile, on: clock.now) }
     private var needsReview: Bool { StockRules.needsLegacyReview(holdings, profile: profile) && !holdings.isEmpty }
     private var needsPrice: Bool { holdings.contains { !$0.priceIsConfigured } }
-    private var composition: [(name: String, amount: Double, color: Color)] {
-        [("现金", profile?.cashCents, WealthCategory.cash.marker), ("股票", stockValue, WealthCategory.stocks.marker), ("理财", profile?.investmentCents, WealthCategory.investment.marker), ("补偿", compensation, WealthCategory.compensation.marker)]
-            .compactMap { name, cents, color in
-                guard let cents else { return nil }
-                return (name, Double(cents), color)
-            }
+    private var summaryNotice: String? {
+        if needsReview { return "股票记录待核对，资产与净值暂不可用。" }
+        if needsPrice { return "部分股价待补全，资产与净值暂不可用。" }
+        if profile?.cashCents == nil || profile?.investmentCents == nil {
+            return "仅汇总已填写资产，未填写类别暂未计入。"
+        }
+        return nil
     }
 
     var body: some View {
@@ -35,8 +36,13 @@ struct WealthView: View {
         NavigationStack(path: $navigation.wealthPath) {
             ScrollView {
                 VStack(spacing: 0) {
-                    WealthSummaryCard(amount: total.map { ProfileRules.money($0) } ?? (needsReview ? "待核对股票" : needsPrice ? "待补全股价" : "待填写"), composition: composition, needsPrice: needsPrice)
-                        .padding(.bottom, 28)
+                    WealthSummaryCard(
+                        amount: total.map { ProfileRules.money($0) } ?? "待补全",
+                        debt: liabilities.isEmpty ? "待记录" : LiabilityRules.total(liabilities, on: clock.now).map { compactBalance($0) } ?? "待核对",
+                        netWorth: liabilities.isEmpty ? "待记录负债" : recordedNetWorth.map { compactBalance($0) } ?? "待补全",
+                        notice: summaryNotice
+                    )
+                        .padding(.bottom, 20)
 
                     ZStack(alignment: .top) {
                         ForEach(WealthCategory.allCases) { category in
@@ -140,6 +146,14 @@ struct WealthView: View {
                 expandedCategory = next
             }
         }
+    }
+
+    private func compactBalance(_ cents: Int64) -> String {
+        let yuan = Decimal(cents) / 100
+        if cents >= 1_000_000 || cents <= -1_000_000 {
+            return (yuan / 10_000).formatted(.number.precision(.fractionLength(2))) + "万"
+        }
+        return yuan.formatted(.number.precision(.fractionLength(2))) + "元"
     }
 
     private var recordedNetWorth: Int64? {
