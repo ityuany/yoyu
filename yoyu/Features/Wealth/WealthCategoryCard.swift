@@ -53,7 +53,7 @@ enum WealthCardGeometry {
     // Content can grow beyond these floors without changing the stack algorithm.
     static func minimumHeight(for category: WealthCategory) -> CGFloat {
         switch category {
-        case .stocks: 600
+        case .stocks: 350
         case .investment: 300
         case .compensation: 400
         default: minimumHeight
