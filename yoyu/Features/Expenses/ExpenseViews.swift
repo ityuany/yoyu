@@ -212,7 +212,10 @@ struct RepaymentExpenseRow: View {
 struct ExpectedExpenseView: View {
     @Query private var records: [RecurringExpense]
     @Query private var liabilities: [LiabilityAccount]
-    @State private var month = ExpenseRules.month(Date())
+    @State private var month: Date
+    init(initialMonth: Date = Date()) {
+        _month = State(initialValue: ExpenseRules.month(initialMonth))
+    }
     @State private var adding = false
     private var accounts: [LiabilityAccount] { LiabilityRules.accounts(liabilities) }
     var body: some View {
@@ -260,6 +263,7 @@ struct ExpectedExpenseView: View {
             } header: { Text("日常开支") } footer: { Text("仅添加还款以外的开支，避免重复录入房贷或信用卡分期。") }
         }.neutralPageBackground()
         .navigationTitle("预计支出").navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
         .sheet(isPresented: $adding) { ExpenseEditor() }
     }
     private func move(_ offset: Int) { month = ExpenseRules.calendar.date(byAdding: .month, value: offset, to: month)! }

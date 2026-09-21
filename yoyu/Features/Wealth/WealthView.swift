@@ -12,7 +12,6 @@ struct WealthView: View {
 
     @State private var expandedCategory: WealthCategory?
     @State private var cardHeights: [WealthCategory: CGFloat] = [:]
-    @State private var editingAsset: WealthEditScope?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var profile: UserProfile? { profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) } }
@@ -111,9 +110,6 @@ struct WealthView: View {
                 .padding(.bottom, 24)
             }
             .background(DashboardStyle.background)
-            .sheet(item: $editingAsset) { asset in
-                ProfileEditor(section: .wealth, profile: profile, wealthScope: asset)
-            }
             .dashboardTabRoot(title: "财富")
             .navigationDestination(for: WealthDestination.self) { destination in
                 switch destination {
@@ -200,13 +196,17 @@ struct WealthView: View {
     @ViewBuilder private func categoryContent(_ category: WealthCategory) -> some View {
         switch category {
         case .cash:
+            LabeledContent("现金余额", value: categoryAmount(.cash))
+                .monospacedDigit()
             Text("记录随时可用的现金与存款余额。")
-                .foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
             NavigationLink { WealthAssetDetailView(asset: .cash) } label: {
-                detailLink("现金余额", icon: "banknote", value: categoryAmount(.cash))
-            }
-            Button { editingAsset = .cash } label: {
-                Label(profile?.cashCents == nil ? "添加现金余额" : "更新现金余额", systemImage: "plus.circle")
+                Text("查看资金详情")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
             }
         case .stocks:
             LabeledContent("已归属股数", value: stockShareCount(unvested: false))

@@ -277,3 +277,32 @@ ExpenseTests 新增每月 31 日、季度跨年、年度月份、闰日、旧记
 `yoyuUITests/MortgageInterestUITests.swift` 使用 XCTest + XCUIAutomation，点击内存示例账本中的组合贷，检查顶部及两类贷款的预计利息、分项合计、旧文案移除和返回重入，并验证右上角编辑、取消不保存及修改名称后保存。Debug 参数 `--mortgage-ui-test` 直接进入独立示例入口，不打开真实数据容器；Release 不包含此入口。
 
 按 `.agent/references/simulator-interaction.md` 复用当前设备，先 `build-for-testing` 并检查主应用、测试 runner 和 bundle 的签名，再 `test-without-building`。使用同一明确 UDID，并传入 `-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 -only-testing:yoyuUITests/MortgageInterestUITests`。默认字号下依次检查浅色、深色，查看结果附件中的页面截图；测试完成后恢复原外观。
+
+### 支出预测
+
+预测页复用日常开支和已知负债还款，从下个月起展示 12、36、60 个完整月份。长期图表按连续 12 个月汇总；未设置结束日期的计划持续计入，不自动假设涨价或新增消费。总额、月均与最高月份来自同一逐月结果，损坏记录不显示完整合计。逐月明细可进入对应月份的原预计支出页面。测试样例使用独立内存容器，不连接真实 CloudKit 账本。
+
+```sh
+swiftc yoyu/Models/ProfileRules.swift yoyu/Models/Liability.swift \
+  yoyu/Models/RecurringExpense.swift yoyu/Models/ExpectedExpense.swift \
+  yoyu/Models/ExpenseForecast.swift Tests/ExpenseForecastTests.swift \
+  -o /tmp/yoyu-forecast-tests
+/tmp/yoyu-forecast-tests
+```
+
+`ForecastUITests` 核对三个期限总额、指定月份的金额来源和返回导航；截图用于默认字号下的浅色、深色外观检查。
+
+预测图表右上角支持全屏横向查看，沿用当前 12／36／60 个月范围，普通与全屏共用图表。`ForecastUITests/testFullscreenPreservesRange` 覆盖三个范围的打开、关闭和范围／总额保留，按浅色与深色分别执行。
+
+## 临时财务 Markdown 导出
+
+入口：我的 → 临时工具 → 导出财务 Markdown。打开时读取一份本机快照，预览、复制和分享使用同一文本；重新打开刷新。不写入业务记录，不自动发送给 AI。导出现金、理财参数、股票与完整归属/调减计划、收入履历、补偿情景、负债参数、日常开支及未来 12 个完整月的已知支出。未填写与异常数据明确标注，未归属股票与补偿不计入已记录资产，无负债记录时不推断净值。
+
+```sh
+swiftc yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Severance,Liability,RecurringExpense,ExpectedExpense,FinancialMarkdown}.swift Tests/FinancialMarkdownTests.swift -o /tmp/yoyu-financial-markdown-tests
+/tmp/yoyu-financial-markdown-tests
+```
+
+覆盖去重、资产/净值口径、未归属单列、支出预测、空数据、损坏负债、未设股价及名称中的 Markdown 换行。`FinancialExportUITests` 通过 `--financial-export-ui-test` 进入独立内存容器，检查入口、生成内容、复制反馈、关闭及重新打开。
+
+2026-09-22：FinancialMarkdownTests、完整模拟器构建及产物验签通过；复用 iPhone 17 Pro Max / iOS 27，默认字号下浅色和深色各执行 1 项 UI 测试，均通过。已查看两种外观截图，并核对模拟器剪贴板包含完整示例 Markdown。未向外部 AI 或分享目标发送财务数据。测试结束恢复原深色外观及真实“我的”页面。

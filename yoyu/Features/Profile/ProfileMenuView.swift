@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProfileMenuView: View {
+    @State private var showingFinancialExport = false
     let summary: String
     let syncStatus: String
 
@@ -31,6 +32,14 @@ struct ProfileMenuView: View {
                 }
             }
 
+            Section("临时工具") {
+                Button { showingFinancialExport = true } label: {
+                    Label("导出财务 Markdown", systemImage: "doc.text")
+                }
+                .accessibilityIdentifier("profile.financialExport")
+                .accessibilityHint("汇集财务信息，预览后复制或分享给 AI")
+            }
+
             Section("数据与同步") {
                 NavigationLink {
                     SyncStatusView()
@@ -49,6 +58,7 @@ struct ProfileMenuView: View {
             }
         }.neutralPageBackground()
         .listStyle(.insetGrouped)
+        .sheet(isPresented: $showingFinancialExport) { FinancialExportView() }
     }
 }
 

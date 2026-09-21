@@ -8,7 +8,11 @@ import SwiftData
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
+            if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
+                FinancialExportTestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--forecast-ui-test") {
+                ForecastTestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
                 NavigationStack { LiabilityExampleView() }
                     .environment(CareerClock())
                     .environment(\.locale, Locale(identifier: "zh_CN"))
@@ -54,6 +58,7 @@ enum WealthDestination: Hashable {
 @Observable final class AppNavigation {
     var selectedTab: AppTab = {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--forecast") { return .forecast }
         if ProcessInfo.processInfo.arguments.contains("--wealth") { return .wealth }
         if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
         #endif
@@ -92,11 +97,7 @@ struct ContentView: View {
                         } else if tab == .profile {
                             ProfileView()
                         } else {
-                            NavigationStack {
-                                DashboardStyle.background
-                                    .ignoresSafeArea()
-                                    .dashboardTabRoot(title: tab.title)
-                            }
+                            ForecastView()
                         }
                     }
                     .tint(DashboardStyle.accent)

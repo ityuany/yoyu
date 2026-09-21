@@ -2,6 +2,33 @@ import XCTest
 
 @MainActor
 final class SeveranceCardUITests: XCTestCase {
+    func testCashDetailsNavigation() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--wealth"]
+        app.launch()
+        let card = app.buttons.containing(.staticText, identifier: "灵活资金").firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 20))
+        card.tap()
+        XCTAssertFalse(app.buttons["更新现金余额"].exists)
+        XCTAssertFalse(app.buttons["添加现金余额"].exists)
+        let details = app.buttons["查看资金详情"]
+        XCTAssertTrue(details.isHittable)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "灵活资金详情按钮"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        details.tap()
+        XCTAssertTrue(app.navigationBars["现金"].waitForExistence(timeout: 5))
+        app.buttons["编辑"].tap()
+        XCTAssertTrue(app.buttons["取消"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields.firstMatch.exists)
+        app.buttons["取消"].tap()
+        XCTAssertTrue(app.navigationBars["现金"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+    }
+
     func testWealthCardSizing() {
         continueAfterFailure = false
         let app = XCUIApplication()
