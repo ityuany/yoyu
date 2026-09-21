@@ -73,6 +73,7 @@ struct LiabilitySnapshot: Codable {
     var name: String = ""
     var kindRaw: String = "mortgage"
     var snapshotData: Data?
+    // Legacy persisted field retained for SwiftData / CloudKit compatibility; no longer read or written.
     var historyData: Data?
     var modifiedAt: Date = Date()
     init() {}
@@ -81,17 +82,6 @@ struct LiabilitySnapshot: Codable {
         guard let snapshotData else { return nil }
         return try? JSONDecoder().decode(LiabilitySnapshot.self, from: snapshotData)
     }
-    var history: [LiabilityRevision]? {
-        guard let historyData else { return [] }
-        return try? JSONDecoder().decode([LiabilityRevision].self, from: historyData)
-    }
-}
-
-struct LiabilityRevision: Codable, Identifiable {
-    var id = UUID()
-    var date: Date
-    var reason: String
-    var snapshot: LiabilitySnapshot
 }
 
 struct DebtPayment: Identifiable {

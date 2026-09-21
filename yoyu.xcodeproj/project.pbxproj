@@ -5,6 +5,41 @@
 	};
 	objectVersion = 90;
 	objects = {
+        A10000000000000000000001 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = yoyuUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+        A10000000000000000000002 = {isa = PBXFileSystemSynchronizedRootGroup; path = yoyuUITests; sourceTree = "<group>"; };
+        A10000000000000000000003 = {isa = PBXSourcesBuildPhase; files = (); };
+        A10000000000000000000004 = {isa = PBXFrameworksBuildPhase; files = (); };
+        A10000000000000000000005 = {isa = PBXResourcesBuildPhase; files = (); };
+        A10000000000000000000006 = {isa = PBXContainerItemProxy; containerPortal = 000000000000000000000000; proxyType = 1; remoteGlobalIDString = 000000000000000100000000; remoteInfo = yoyu; };
+        A10000000000000000000007 = {isa = PBXTargetDependency; target = 000000000000000100000000; targetProxy = A10000000000000000000006; };
+        A10000000000000000000008 = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = A10000000000000000000009;
+            buildPhases = (A10000000000000000000003, A10000000000000000000004, A10000000000000000000005);
+            buildRules = (); dependencies = (A10000000000000000000007);
+            fileSystemSynchronizedGroups = (A10000000000000000000002);
+            name = yoyuUITests; productName = yoyuUITests;
+            productReference = A10000000000000000000001;
+            productType = "com.apple.product-type.bundle.ui-testing";
+        };
+        A10000000000000000000009 = {isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000A, A1000000000000000000000B); defaultConfigurationName = Release; };
+        A1000000000000000000000A = {isa = XCBuildConfiguration; name = Debug; buildSettings = {
+            CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES;
+            IPHONEOS_DEPLOYMENT_TARGET = 26.5; SDKROOT = iphoneos;
+            PRODUCT_BUNDLE_IDENTIFIER = com.ityuany.yoyu.uitests;
+            PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0;
+            TARGETED_DEVICE_FAMILY = 1; TEST_TARGET_NAME = yoyu;
+            SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+        }; };
+        A1000000000000000000000B = {isa = XCBuildConfiguration; name = Release; buildSettings = {
+            CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES;
+            IPHONEOS_DEPLOYMENT_TARGET = 26.5; SDKROOT = iphoneos;
+            PRODUCT_BUNDLE_IDENTIFIER = com.ityuany.yoyu.uitests;
+            PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0;
+            TARGETED_DEVICE_FAMILY = 1; TEST_TARGET_NAME = yoyu;
+            SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+        }; };
+
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* yoyu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = yoyu.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* yoyu */,
+                A10000000000000000000002,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -52,6 +88,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* yoyu.app */,
+                A10000000000000000000001,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -106,6 +143,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+                A10000000000000000000008,
 				000000000000000100000000 /* yoyu */,
 			);
 		};

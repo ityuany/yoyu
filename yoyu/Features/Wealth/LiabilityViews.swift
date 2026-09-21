@@ -3,6 +3,7 @@ import SwiftData
 
 struct LiabilityOverviewView: View {
     @Environment(CareerClock.self) private var clock
+    @Environment(\.modelContext) private var context
     var filter: LiabilityKind? = nil
     var isExample = false
     @Query private var records: [LiabilityAccount]
@@ -42,7 +43,10 @@ struct LiabilityOverviewView: View {
                 Section(kind.title) {
                     let group = accounts.filter { $0.kind == kind }
                     ForEach(group) { account in
-                        NavigationLink { LiabilityDetailView(accountID: account.id) } label: {
+                        NavigationLink {
+                            LiabilityDetailView(accountID: account.id)
+                                .modelContext(context)
+                        } label: {
                             HStack {
                                 Label(account.name, systemImage: kind.icon)
                                 Spacer()
@@ -95,7 +99,7 @@ struct LiabilityDetailView: View {
                         }.padding(.vertical, 8)
                         if kind == .mortgage, let last = schedule.last {
                             LabeledContent("预计结清", value: CareerRules.dateLabel(last.date))
-                            LabeledContent("后续预计利息", value: LiabilityRules.sum(schedule.map(\.interest)).map { ProfileRules.money($0) } ?? "超出范围")
+                            LabeledContent("预计利息", value: LiabilityRules.sum(schedule.map(\.interest)).map { ProfileRules.money($0) } ?? "超出范围")
                         }
                         if let error = LiabilityRules.error(snapshot, kind: kind) {
                             Label(error, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
@@ -106,28 +110,26 @@ struct LiabilityDetailView: View {
                         NavigationLink { DebtScheduleView(accounts: [account]) } label: {
                             Label("查看逐月还款计划", systemImage: "calendar")
                         }
-                        Button(kind == .creditCard && snapshot.fixedInstallmentsOnly == true ? "编辑分期与还款进度" : "校准余额与计划") { editing = true }
+                        if kind != .mortgage {
+                            Button(snapshot.fixedInstallmentsOnly == true ? "编辑分期与还款进度" : "校准余额与计划") { editing = true }
+                        }
                         if LiabilityRules.confirmed(snapshot, kind: kind, on: clock.now) != nil {
                             Button(kind == .mortgage || snapshot.fixedInstallmentsOnly == true ? "登记一期还款" : "确认本期账单已还清") { confirming = true }
                         }
                     } footer: {
-                        Text(LiabilityRules.hasAutomaticProgress(snapshot) ? "自动推算不代表银行实际扣款。如有延期或未扣款，请编辑对应分期，关闭自动推算并调整已还期数。" : "仅在银行确已扣款后确认。确认会更新负债余额并保留原记录，不会自动扣减现金资产。部分还款、提前还款或利率调整，请使用校准入口按银行结果更新。")
+                        Text(LiabilityRules.hasAutomaticProgress(snapshot) ? "自动推算不代表银行实际扣款。如有延期或未扣款，请编辑对应分期，关闭自动推算并调整已还期数。" : kind == .mortgage ? "仅在银行确已扣款后确认。确认会更新负债余额，不会自动扣减现金资产。部分还款、提前还款或利率调整，请点击右上角“编辑”，按银行结果更新。" : "仅在银行确已扣款后确认。确认会更新负债余额，不会自动扣减现金资产。部分还款、提前还款或利率调整，请使用校准入口按银行结果更新。")
                     }
                     if !snapshot.note.isEmpty { Section("备注") { Text(snapshot.note) } }
-                    if let history = account.history, !history.isEmpty {
-                        Section("校准历史") {
-                            ForEach(history.reversed()) { revision in
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(revision.reason).font(.subheadline)
-                                    Text("\(CareerRules.dateLabel(revision.date)) · 调整前余额 \(LiabilityRules.balance(revision.snapshot, kind: kind, on: revision.date).map { ProfileRules.money($0) } ?? "未知")")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
                     Section { Button("删除此账户", role: .destructive) { deleting = true } }
                 }.neutralPageBackground()
                 .navigationTitle(account.name)
+                .toolbar {
+                    if kind == .mortgage {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("编辑") { editing = true }
+                        }
+                    }
+                }
                 .sheet(isPresented: $editing) { LiabilityEditor(kind: kind, account: account) }
                 .alert("确认银行已完成还款？", isPresented: $confirming) {
                     Button("取消", role: .cancel) {}
@@ -141,7 +143,7 @@ struct LiabilityDetailView: View {
                         for record in records where record.id == account.id { context.delete(record) }
                         do { try context.save(); dismiss() } catch { context.rollback(); errorMessage = error.localizedDescription }
                     }
-                } message: { Text("将删除此账户、分期计划及校准历史。") }
+                } message: { Text("将删除此账户及分期计划。") }
             } else {
                 ContentUnavailableView("记录暂不可用", systemImage: "exclamationmark.circle", description: Text("请返回负债列表，等待同步完成后重试。"))
             }
@@ -153,11 +155,13 @@ struct LiabilityDetailView: View {
 
     private func mortgageDetails(_ snapshot: LiabilitySnapshot) -> some View {
         ForEach(snapshot.mortgages) { part in
+            let schedule = LiabilityRules.mortgage(part)
             Section(part.name) {
                 LabeledContent("剩余本金", value: ProfileRules.money(part.principal))
+                LabeledContent("预计利息", value: LiabilityRules.sum(schedule.map(\.interest)).map { ProfileRules.money($0) } ?? "超出范围")
                 LabeledContent("执行年利率", value: part.annualPercent.formatted(.number.precision(.fractionLength(0...4))) + "%")
                 LabeledContent("还款方式", value: part.method.title)
-                if let next = LiabilityRules.mortgage(part).first {
+                if let next = schedule.first {
                     LabeledContent("下期预计还款", value: ProfileRules.money(next.total))
                     LabeledContent("下次还款日", value: CareerRules.dateLabel(next.date))
                     LabeledContent("剩余期数", value: "\(part.months) 期")
@@ -238,7 +242,7 @@ struct LiabilityDetailView: View {
 
     private func confirm(_ account: LiabilityAccount, snapshot: LiabilitySnapshot, kind: LiabilityKind) {
         guard let next = LiabilityRules.confirmed(snapshot, kind: kind, on: clock.now) else { return }
-        do { try LiabilityStore.save(next, name: account.name, kind: kind, account: account, reason: "确认还款", context: context) }
+        do { try LiabilityStore.save(next, name: account.name, kind: kind, account: account, context: context) }
         catch { errorMessage = error.localizedDescription }
     }
 }
@@ -351,12 +355,12 @@ struct LiabilityExampleView: View {
                 .init(name: "公积金贷款", principal: 600_000_00, annualPercent: 2.6, months: 240, nextDate: next, dueDay: 15),
                 .init(name: "商业贷款", principal: 900_000_00, annualPercent: 3.1, months: 240, method: .equalPrincipal, nextDate: next, dueDay: 15)
             ], note: "演示利率与金额，仅用于预览布局。")
-            try LiabilityStore.save(mortgage, name: "示例 · 自住房组合贷", kind: .mortgage, account: nil, reason: "", context: container.mainContext)
+            try LiabilityStore.save(mortgage, name: "示例 · 自住房组合贷", kind: .mortgage, account: nil, context: container.mainContext)
             let card = LiabilitySnapshot(balanceDate: date, installments: [
                 .init(name: "家电分期", principal: 12000_00, months: 12, nextDate: LiabilityRules.date(date, offset: -4, day: 15), dueDay: 15, terms: .init(rate: 3.6, automatic: true)),
                 .init(name: "旅行分期", principal: 3000_00, months: 6, nextDate: next, dueDay: 15, terms: .init(automatic: true))
             ], fixedInstallmentsOnly: true, cardRepaymentDay: 15)
-            try LiabilityStore.save(card, name: "示例 · 信用卡", kind: .creditCard, account: nil, reason: "", context: container.mainContext)
+            try LiabilityStore.save(card, name: "示例 · 信用卡", kind: .creditCard, account: nil, context: container.mainContext)
             self.container = container
         } catch { errorMessage = error.localizedDescription }
     }

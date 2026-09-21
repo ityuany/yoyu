@@ -138,7 +138,7 @@ struct LiabilityEditor: View {
                 Section("备注") { TextField("选填", text: $note, axis: .vertical) }
                 Section {
                     Text(kind == .mortgage
-                         ? "按当前执行利率推算。调整利率或提前还款后，请按银行结果更新剩余本金、期数和下次还款日；旧记录会保留在校准历史中。"
+                         ? "按当前执行利率推算。调整利率或提前还款后，请按银行结果更新剩余本金、期数和下次还款日。"
                          : fixedOnly ? "自动推算假设每期正常还款，过了还款日计为已还，不代表银行实际扣款。月份不足指定天数时，使用月末。年利率按等额本息计算；手续费按分期总额计算。" : "总欠款包含所有分期剩余本金和已入账费用，不含尚未入账的未来费用。已录入的本期账单不会再叠加当期分期。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -151,7 +151,7 @@ struct LiabilityEditor: View {
                     }
                 }
             }
-            .navigationTitle(account == nil ? "添加\(kind.title)" : "校准\(kind.title)")
+            .navigationTitle(account == nil ? "添加\(kind.title)" : kind == .mortgage ? "编辑房贷" : "校准\(kind.title)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
@@ -324,7 +324,7 @@ struct LiabilityEditor: View {
         }
         if let error = LiabilityRules.error(snapshot, kind: kind) { errorMessage = error; return }
         do {
-            try LiabilityStore.save(snapshot, name: cleanName, kind: kind, account: account, reason: "余额与计划校准", context: context)
+            try LiabilityStore.save(snapshot, name: cleanName, kind: kind, account: account, context: context)
             dismiss()
         } catch { errorMessage = "保存失败，原记录未改变：\(error.localizedDescription)" }
     }

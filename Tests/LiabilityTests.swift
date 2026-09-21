@@ -103,7 +103,7 @@ import SwiftData
         let restoredLegacy = try JSONDecoder().decode(LiabilitySnapshot.self, from: JSONSerialization.data(withJSONObject: legacyJSON))
         precondition(restoredLegacy.cardRepaymentDay == nil)
         precondition(LiabilityRules.paidCount(restoredLegacy.installments[0], on: march) == 3)
-        // History is evaluated at the revision's date and does not drift as today changes.
+        // Balance uses the supplied evaluation date rather than the current date.
         precondition(LiabilityRules.balance(autoSnapshot, kind: .creditCard, on: next) == 12000_00)
         var wrongDay = autoSnapshot
         wrongDay.cardRepaymentDay = 10
@@ -155,29 +155,33 @@ import SwiftData
             let container = try ModelContainer(for: schema, configurations: [config])
             let record = LiabilityAccount(); id = record.id
             record.name = "组合贷"; record.snapshotData = try JSONEncoder().encode(snapshot)
-            record.historyData = try JSONEncoder().encode([LiabilityRevision(date: baseline, reason: "校准", snapshot: snapshot)])
+            record.historyData = Data("legacy history".utf8)
             container.mainContext.insert(record); try container.mainContext.save()
         }
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
             let records = try container.mainContext.fetch(FetchDescriptor<LiabilityAccount>())
             precondition(records.count == 1 && records[0].id == id)
-            precondition(records[0].snapshot!.mortgages.count == 2 && records[0].history!.count == 1)
+            precondition(records[0].snapshot!.mortgages.count == 2 && records[0].historyData == Data("legacy history".utf8))
+            try LiabilityStore.save(confirmed, name: "已编辑组合贷", kind: .mortgage, account: records[0], context: container.mainContext)
+            precondition(records[0].name == "已编辑组合贷")
+            precondition(records[0].snapshot!.mortgages[0].principal == confirmed.mortgages[0].principal)
+            precondition(records[0].historyData == Data("legacy history".utf8))
             let copy = LiabilityAccount(); copy.id = id; copy.modifiedAt = .distantFuture
             copy.snapshotData = try JSONEncoder().encode(snapshot)
             precondition(LiabilityRules.accounts([records[0], copy]).count == 1)
         }
         let memory = try ModelContainer(for: LiabilityAccount.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
-        try LiabilityStore.save(snapshot, name: "组合贷", kind: .mortgage, account: nil, reason: "新增", context: memory.mainContext)
+        try LiabilityStore.save(snapshot, name: "组合贷", kind: .mortgage, account: nil, context: memory.mainContext)
         let stored = try memory.mainContext.fetch(FetchDescriptor<LiabilityAccount>()).first!
         var cancelledDraft = stored.snapshot!
         cancelledDraft.mortgages[0].principal = 1
         precondition(stored.snapshot!.mortgages[0].principal == annuity.principal)
-        try LiabilityStore.save(confirmed, name: stored.name, kind: .mortgage, account: stored, reason: "确认还款", context: memory.mainContext)
-        precondition(stored.history!.count == 1 && stored.snapshot!.mortgages[0].principal == confirmed.mortgages[0].principal)
+        try LiabilityStore.save(confirmed, name: stored.name, kind: .mortgage, account: stored, context: memory.mainContext)
+        precondition(stored.historyData == nil && stored.snapshot!.mortgages[0].principal == confirmed.mortgages[0].principal)
         var invalid = confirmed; invalid.mortgages[0].months = 0
         do {
-            try LiabilityStore.save(invalid, name: stored.name, kind: .mortgage, account: stored, reason: "无效", context: memory.mainContext)
+            try LiabilityStore.save(invalid, name: stored.name, kind: .mortgage, account: stored, context: memory.mainContext)
             preconditionFailure("Invalid snapshot must not save")
         } catch { precondition(stored.snapshot!.mortgages[0].months == confirmed.mortgages[0].months) }
         print("Liability amortization, zero interest, month ends, rounding, bills, installments, confirmations and isolated persistence passed")

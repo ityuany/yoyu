@@ -7,6 +7,22 @@ import SwiftData
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
+                NavigationStack { LiabilityExampleView() }
+                    .environment(CareerClock())
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else {
+                appContent
+            }
+            #else
+            appContent
+            #endif
+        }
+    }
+
+    private var appContent: some View {
+        Group {
             if let container = storage.container {
                 ContentView()
                     .modelContainer(container)
