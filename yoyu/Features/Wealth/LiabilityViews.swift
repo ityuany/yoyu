@@ -8,6 +8,7 @@ struct LiabilityOverviewView: View {
     var isExample = false
     @Query private var records: [LiabilityAccount]
     @State private var adding: LiabilityKind?
+    @State private var openedMortgage: LiabilityAccount?
     init(filter: LiabilityKind? = nil, isExample: Bool = false) {
         self.filter = filter
         self.isExample = isExample
@@ -43,15 +44,23 @@ struct LiabilityOverviewView: View {
                 Section(kind.title) {
                     let group = accounts.filter { $0.kind == kind }
                     ForEach(group) { account in
-                        NavigationLink {
-                            LiabilityDetailView(accountID: account.id)
-                                .modelContext(context)
-                        } label: {
-                            HStack {
-                                Label(account.name, systemImage: kind.icon)
-                                Spacer()
-                                Text(account.snapshot.flatMap { LiabilityRules.balance($0, kind: kind, on: clock.now) }.map { ProfileRules.money($0, compact: true) } ?? "待核对")
-                                    .foregroundStyle(.secondary).monospacedDigit()
+                        if kind == .mortgage {
+                            MortgageCertificateCard(account: account, date: clock.now) {
+                                openedMortgage = account
+                            }
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        } else {
+                            NavigationLink {
+                                LiabilityDetailView(accountID: account.id).modelContext(context)
+                            } label: {
+                                HStack {
+                                    Label(account.name, systemImage: kind.icon)
+                                    Spacer()
+                                    Text(account.snapshot.flatMap { LiabilityRules.balance($0, kind: kind, on: clock.now) }.map { ProfileRules.money($0, compact: true) } ?? "待核对")
+                                        .foregroundStyle(.secondary).monospacedDigit()
+                                }
                             }
                         }
                     }
@@ -70,6 +79,9 @@ struct LiabilityOverviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .sheet(item: $adding) { LiabilityEditor(kind: $0) }
+        .navigationDestination(item: $openedMortgage) { account in
+            LiabilityDetailView(accountID: account.id).modelContext(context)
+        }
     }
 }
 

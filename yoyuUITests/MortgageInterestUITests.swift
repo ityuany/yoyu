@@ -8,8 +8,15 @@ final class MortgageInterestUITests: XCTestCase {
         app.launchArguments = ["--mortgage-ui-test"]
         app.launch()
 
-        let mortgage = app.buttons.containing(.staticText, identifier: "示例 · 自住房组合贷").firstMatch
+        let mortgage = app.buttons["打开档案"].firstMatch
         XCTAssertTrue(mortgage.waitForExistence(timeout: 15), app.debugDescription)
+        app.staticTexts["示例 · 自住房组合贷"].tap()
+        XCTAssertFalse(app.navigationBars["示例 · 自住房组合贷"].exists)
+        if !mortgage.isHittable { app.swipeUp() }
+        let overview = XCTAttachment(screenshot: app.screenshot())
+        overview.name = "房产证风格房贷卡片"
+        overview.lifetime = .keepAlways
+        add(overview)
         mortgage.tap()
         XCTAssertTrue(app.navigationBars["示例 · 自住房组合贷"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["后续预计利息"].exists)

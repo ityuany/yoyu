@@ -163,7 +163,7 @@ struct WealthView: View {
     }
 
     private func cardHeight(_ category: WealthCategory) -> CGFloat {
-        cardHeights[category] ?? WealthCardGeometry.minimumHeight(for: category)
+        cardHeights[category] ?? WealthCardGeometry.minimumHeight
     }
 
     private var expandedRevealDistance: CGFloat {
@@ -251,10 +251,22 @@ struct WealthView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 12))
             }
         case .compensation:
-            Text("根据当前任职和补偿方案估算，尚未实际到账。")
-                .foregroundStyle(.secondary)
+            ForEach(SeverancePlan.selectable) { plan in
+                LabeledContent("补偿方案 \(plan.title)") {
+                    Text(compensationAmount(for: plan))
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                }
+            }
+            Text("根据当前任职及工资基数估算，均为税前金额，尚未实际到账。")
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
             NavigationLink { SeveranceDetailView() } label: {
-                detailLink(scenario.job == nil ? "完善当前任职" : "查看补偿方案", icon: "briefcase")
+                Text(scenario.job == nil ? "完善当前任职" : "查看补偿方案")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
             }
         case .debt:
             ForEach(LiabilityKind.allCases) { kind in
@@ -268,11 +280,6 @@ struct WealthView: View {
                 NavigationLink { LiabilityExampleView() } label: {
                     detailLink("查看组合贷与分期示例", icon: "sparkles")
                 }
-            } else {
-                LabeledContent("资产净值", value: recordedNetWorth.map { ProfileRules.money($0) } ?? "待补全资产")
-                    .monospacedDigit()
-                Text("净值不含房产、未归属股票与预计补偿。")
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -287,6 +294,14 @@ struct WealthView: View {
             total += Decimal(unvested ? balance.unvestedShares : balance.vestedShares)
         }
         return (total / 100).formatted(.number.precision(.fractionLength(0...2))) + " 股"
+    }
+
+    private func compensationAmount(for plan: SeverancePlan) -> String {
+        let scenario = scenario
+        guard let job = scenario.job, var settings = scenario.settings else { return "待完善" }
+        settings.plan = plan
+        return SeveranceRules.estimate(settings: settings, job: job, salaryCents: scenario.salaryCents, noticeSalaryCents: scenario.noticeSalaryCents, on: clock.now)
+            .map { ProfileRules.money($0.amountCents) } ?? "待完善"
     }
 
     private func detailLink(_ title: String, icon: String, value: String? = nil) -> some View {

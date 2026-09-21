@@ -18,7 +18,7 @@ enum WealthCategory: String, CaseIterable, Identifiable {
         case .cash: "日常储备"
         case .stocks: "已归属价值"
         case .investment: "当前估算金额"
-        case .compensation: "未来资产 · 税前估算"
+        case .compensation: "N+1 · 税前估算"
         case .debt: "还款与账单"
         }
     }
@@ -45,20 +45,10 @@ enum WealthCategory: String, CaseIterable, Identifiable {
 }
 
 enum WealthCardGeometry {
-    static let minimumHeight: CGFloat = 250
+    static let minimumHeight: CGFloat = 200
     static let headerHeight: CGFloat = 64
     static let gap: CGFloat = 12
 
-    // Deliberately different floors for reviewing tall-to-short transitions.
-    // Content can grow beyond these floors without changing the stack algorithm.
-    static func minimumHeight(for category: WealthCategory) -> CGFloat {
-        switch category {
-        case .stocks: 350
-        case .investment: 300
-        case .compensation: 400
-        default: minimumHeight
-        }
-    }
 }
 
 struct WealthCategoryCard<Content: View>: View {
@@ -98,16 +88,15 @@ struct WealthCategoryCard<Content: View>: View {
             .font(.subheadline)
             .padding(.horizontal, 22)
             .padding(.bottom, 22)
-            .frame(minHeight: category == .stocks || category == .investment
-                   ? WealthCardGeometry.minimumHeight(for: category) - WealthCardGeometry.headerHeight
-                   : nil, alignment: .topLeading)
+            .frame(minHeight: WealthCardGeometry.minimumHeight - WealthCardGeometry.headerHeight,
+                   alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             // Keep content visible while cards move; overlapping cards and the
             // stack's clipping conceal it as the selected arrangement closes.
             .allowsHitTesting(isExpanded)
             .accessibilityHidden(!isExpanded)
         }
-        .frame(minHeight: WealthCardGeometry.minimumHeight(for: category), alignment: .top)
+        .frame(minHeight: WealthCardGeometry.minimumHeight, alignment: .top)
         .fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(category.ink(dark: dark))
         .background(category.fill(dark: dark), in: RoundedRectangle(cornerRadius: 28))
