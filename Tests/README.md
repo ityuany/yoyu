@@ -306,3 +306,29 @@ swiftc yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Sev
 覆盖去重、资产/净值口径、未归属单列、支出预测、空数据、损坏负债、未设股价及名称中的 Markdown 换行。`FinancialExportUITests` 通过 `--financial-export-ui-test` 进入独立内存容器，检查入口、生成内容、复制反馈、关闭及重新打开。
 
 2026-09-22：FinancialMarkdownTests、完整模拟器构建及产物验签通过；复用 iPhone 17 Pro Max / iOS 27，默认字号下浅色和深色各执行 1 项 UI 测试，均通过。已查看两种外观截图，并核对模拟器剪贴板包含完整示例 Markdown。未向外部 AI 或分享目标发送财务数据。测试结束恢复原深色外观及真实“我的”页面。
+
+### 工作中断期间暂停日常开支
+
+日常开支新增「工作中断期间暂停」，默认关闭，与指定结束日期独立。开启后，在预测传入的失业／gap 区间内暂停，区间起止日均包含；未传入区间仍按原计划计算。月内陆续发生按有效天数折算；指定日期扣款按扣款日是否落入区间决定是否跳过，恢复后不补扣、不改变周期，原结束日期仍生效。多个重叠区间不重复扣除，无结束日表示持续中断。负债还款不受影响。
+
+设置保存在现有 SwiftData + CloudKit 私有数据中的计划 JSON，旧 JSON 缺失字段按关闭处理，无需更改数据库结构。详情和财务 Markdown 导出包含此设置。`ExpenseForecast.months`、`ExpectedExpenseRules.total` 与 `ExpenseRules` 接受同一 `workBreaks` 情景参数；预测页通过工作情景显式设置阶段，不依据缺失的职业履历推断失业。
+
+`ExpenseTests` 覆盖旧 JSON、保存后重开、重叠区间、按天折算、单日暂停、无限期暂停、周期恢复与结束日期；`ExpenseForecastTests` 验证情景汇总、负债不暂停及不传情景时的兼容结果。`ExpenseWorkBreakUITests` 使用 `--expense-ui-test` 独立内存示例，检查取消不保存、保存与重新进入，按浅色和深色运行。
+
+### 工作情景预测
+
+预测页按「工作情景 → 资金结果 → 趋势 → 开支与逐月明细」组织。调整情景使用独立 sheet 草稿，支持持续在职、阶段性失业／gap、长期不再就业；阶段性情景可选择 1／3／6 个月或直接设置再就业日期，并填写再就业月到手收入。情景存入 `ForecastScenarioRecord`，纳入原 SwiftData + CloudKit 私有数据库；多条同步记录按更新时间及稳定内容顺序选取，不改变真实履历、开支与余额。
+
+从今天起展示 12／36／60 个自然月，本月只计今天及之后。起始现金自动关联最新财富记录，页面提示更新日期；不再要求重复填写期初资金。工资按日分摊，失业当天停止、再就业当天恢复；缺失工资只在对应在职日期需要时阻止完整结论。固定扣款仍保留原周期。资金不足按首次负数月末标记，不承诺月内逐日流动性；再就业前低点包含期初资金及再就业月份之前的月末，工作中断支出只汇总展示范围与中断日期的交集。未录入费用、补偿与失业金不自动计入。理财估值变化独立展示，指定赎回才计入现金。
+
+余额／收支图和横向全屏复用同一情景、范围与数据。逐月来源使用情景暂停规则，负债照常。测试与演示入口 `--scenario-ui-test`、`--scenario-demo` 为 Debug 独立内存数据，并有可见示例标注；不写入用户账本。
+
+```sh
+swiftc yoyu/Models/{ProfileRules,Liability,RecurringExpense,ExpectedExpense,ExpenseForecast,ForecastScenario}.swift \
+  yoyu/Services/ExpenseStore.swift Tests/ScenarioForecastTests.swift -o /tmp/yoyu-scenario-tests
+/tmp/yoyu-scenario-tests
+```
+
+`ScenarioForecastTests` 覆盖月中切换、不同薪资、暂停支出、负余额、缺失收入与明确零收入、跨月资金失效、日期验证和独立数据库重开。`ForecastScenarioUITests` 覆盖取消、应用、重新编辑、三种情景、图表切换与全屏、逐月来源；`ForecastUITests` 验证原支出汇总与期限保持。
+
+预测关联基础更新：从今天（含当天）计算，本月只计剩余日期；现金自动读取财富记录。职业税前薪资仅作来源参考，到手收入由情景确认并持续沿用。理财按已有收益参数展示估值变化，默认不进入现金；指定全部赎回日期时本息仅转入一次，其后不再计息。ScenarioForecastTests 新增未来三个月后中断工作、首月部分日期及赎回不重复入账验证。旧完整月份 UI 样例固定在月初；--scenario-demo 覆盖月中起算。

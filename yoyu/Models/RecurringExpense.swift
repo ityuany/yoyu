@@ -18,6 +18,9 @@ nonisolated struct ExpensePlan: Codable {
     var spreadAcrossMonth = true
     var dueDay = 1
     var note = ""
+    // Optional so plans saved before this setting remain decodable and continue normally.
+    var pausesDuringWorkBreak: Bool? = nil
+    var workBreakBehavior: String { pausesDuringWorkBreak == true ? "工作中断期间暂停" : "工作中断期间照常" }
 }
 
 @Model final class RecurringExpense {
@@ -28,6 +31,20 @@ nonisolated struct ExpensePlan: Codable {
     var plan: ExpensePlan? {
         guard let planData else { return nil }
         return try? JSONDecoder().decode(ExpensePlan.self, from: planData)
+    }
+}
+
+/// Scenario input only: inclusive first/last non-working days; nil end means ongoing.
+/// Does not change the stored plan or infer employment from incomplete career records.
+nonisolated struct ExpenseWorkBreak {
+    var start: Date
+    var end: Date?
+
+    func contains(_ date: Date) -> Bool {
+        let calendar = ProfileRules.calendar
+        let day = calendar.startOfDay(for: date)
+        return day >= calendar.startOfDay(for: start)
+            && (end.map { day <= calendar.startOfDay(for: $0) } ?? true)
     }
 }
 
@@ -49,7 +66,7 @@ enum ExpenseRules {
     }
     /// Fixed payments are anchored to the start month; short months clamp the day,
     /// without shifting the requested day in subsequent months. End date is inclusive.
-    static func amount(_ plan: ExpensePlan, in date: Date) -> Int64? {
+    static func amount(_ plan: ExpensePlan, in date: Date, workBreaks: [ExpenseWorkBreak] = [], from lowerBound: Date? = nil, through upperBound: Date? = nil) -> Int64? {
         guard error(plan) == nil else { return nil }
         let first = month(date)
         let next = calendar.date(byAdding: .month, value: 1, to: first)!
@@ -57,9 +74,13 @@ enum ExpenseRules {
         let end = plan.end.map { calendar.startOfDay(for: $0) }
         guard next > start, end == nil || end! >= first else { return 0 }
         if plan.spreadAcrossMonth {
-            let lower = max(first, start)
-            let upper = min(next, end.map { calendar.date(byAdding: .day, value: 1, to: $0)! } ?? next)
-            let days = calendar.dateComponents([.day], from: lower, to: upper).day!
+            let lower = max(first, start, lowerBound.map { calendar.startOfDay(for: $0) } ?? first)
+            let upper = min(next, end.map { calendar.date(byAdding: .day, value: 1, to: $0)! } ?? next, upperBound.map { calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: $0))! } ?? next)
+            let span = calendar.dateComponents([.day], from: lower, to: upper).day!
+            let days = (0..<max(0, span)).filter { offset in
+                let day = calendar.date(byAdding: .day, value: offset, to: lower)!
+                return plan.pausesDuringWorkBreak != true || !workBreaks.contains { $0.contains(day) }
+            }.count
             let totalDays = calendar.range(of: .day, in: .month, for: first)!.count
             var value = Decimal(plan.amount) * Decimal(days) / Decimal(totalDays)
             var rounded = Decimal()
@@ -70,7 +91,10 @@ enum ExpenseRules {
         guard offset >= 0, offset % plan.frequency.rawValue == 0 else { return 0 }
         let day = min(plan.dueDay, calendar.range(of: .day, in: .month, for: first)!.count)
         let due = calendar.date(byAdding: .day, value: day - 1, to: first)!
-        return due >= start && (end == nil || due <= end!) ? plan.amount : 0
+        let paused = plan.pausesDuringWorkBreak == true && workBreaks.contains { $0.contains(due) }
+        let inWindow = (lowerBound.map { due >= calendar.startOfDay(for: $0) } ?? true)
+            && (upperBound.map { due <= calendar.startOfDay(for: $0) } ?? true)
+        return due >= start && (end == nil || due <= end!) && !paused && inWindow ? plan.amount : 0
     }
     /// Resolve old plans with separate start/day fields without changing their schedule.
     static func firstPaymentDate(_ plan: ExpensePlan) -> Date {
@@ -102,10 +126,10 @@ enum ExpenseRules {
                 return a == b ? $0.id < $1.id : a.localizedStandardCompare(b) == .orderedAscending
             }
     }
-    static func total(_ records: [RecurringExpense], in date: Date) -> Int64? {
+    static func total(_ records: [RecurringExpense], in date: Date, workBreaks: [ExpenseWorkBreak] = []) -> Int64? {
         var total: Int64 = 0
         for record in self.records(records) {
-            guard let plan = record.plan, let amount = amount(plan, in: date) else { return nil }
+            guard let plan = record.plan, let amount = amount(plan, in: date, workBreaks: workBreaks) else { return nil }
             let sum = total.addingReportingOverflow(amount)
             guard !sum.overflow, sum.partialValue <= ProfileRules.maximumMoneyCents else { return nil }
             total = sum.partialValue

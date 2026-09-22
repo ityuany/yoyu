@@ -12,7 +12,6 @@ enum DashboardStyle {
     static let compensation = adaptive(light: (0.58, 0.45, 0.65), dark: (0.76, 0.64, 0.83))
     static let pageInset: CGFloat = 20
     static let sectionSpacing: CGFloat = 24
-    static let cardSpacing: CGFloat = 16
 
     private static func adaptive(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)) -> Color {
         Color(uiColor: UIColor { traits in
@@ -75,26 +74,6 @@ extension View {
 
     func dashboardCard(highlighted: Bool = false) -> some View {
         modifier(DashboardCard(highlighted: highlighted))
-    }
-}
-
-struct DashboardMetric: View {
-    let title: String
-    let value: String
-    let symbol: String
-    let detail: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: symbol)
-                .font(.subheadline).foregroundStyle(.secondary)
-            Text(value)
-                .font(.title3.weight(.semibold)).monospacedDigit()
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(detail).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .dashboardCard()
     }
 }
 

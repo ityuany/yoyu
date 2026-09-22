@@ -5,11 +5,15 @@ struct SeveranceEditor: View {
     let job: Employment
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query private var stages: [SalaryStage]
+    @Environment(CareerClock.self) private var clock
+    @State private var plan: SeverancePlan
     @State private var cap: String
     @State private var errorMessage: String?
 
     init(job: Employment, settings: SeveranceSettings) {
         self.job = job
+        _plan = State(initialValue: settings.automatic.plan)
         _cap = State(initialValue: ProfileRules.input(settings.tripleAverageSalaryCents))
     }
 
@@ -24,6 +28,39 @@ struct SeveranceEditor: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    ForEach(SeverancePlan.selectable) { option in
+                        Button { plan = option } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(alignment: .firstTextBaseline) {
+                                        Text(option.title).font(.headline)
+                                        Spacer(minLength: 8)
+                                        Text(amount(for: option))
+                                            .font(.headline).monospacedDigit()
+                                    }
+                                    Text(explanation(for: option))
+                                        .font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Image(systemName: plan == option ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(plan == option ? Color.accentColor : Color.secondary)
+                                    .font(.title3)
+                                    .accessibilityHidden(true)
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(.vertical, 8)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("severance.plan." + option.rawValue)
+                        .accessibilityAddTraits(plan == option ? [.isSelected] : [])
+                    }
+                } header: {
+                    Text("预测方案 · 税前估算")
+                } footer: {
+                    Text("选择预计被裁时采用的赔偿方案，用于财富卡片显示和预测中的裁员补偿金额。")
+                }
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("3倍社平").font(.subheadline)
@@ -60,9 +97,29 @@ struct SeveranceEditor: View {
         }
     }
 
+    private func amount(for option: SeverancePlan) -> String {
+        guard validationError == nil else { return "待完善" }
+        let settings = SeveranceSettings(plan: option, tripleAverageSalaryCents: ProfileRules.scaledValue(cap))
+        let estimate = SeveranceRules.estimate(
+            settings: settings, job: job,
+            salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: clock.now),
+            noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: clock.now),
+            on: clock.now)
+        return estimate.map { ProfileRules.money($0.amountCents) } ?? "待完善"
+    }
+
+    private func explanation(for option: SeverancePlan) -> String {
+        switch option {
+        case .n: "补偿年限 × 月薪基数"
+        case .nPlusOne: "N 的补偿金额 + 上月工资"
+        case .twoN: "N 的补偿金额 × 2"
+        case .customAmount: "自定义金额"
+        }
+    }
+
     private func save() {
         guard validationError == nil else { return }
-        var settings = SeveranceSettings()
+        var settings = SeveranceSettings(plan: plan)
         settings.tripleAverageSalaryCents = ProfileRules.scaledValue(cap)
         do {
             job.severanceData = try JSONEncoder().encode(settings)

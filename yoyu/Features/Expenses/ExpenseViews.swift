@@ -129,7 +129,7 @@ struct ExpenseHomeSection: View {
     private var ledgerHeader: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("本月支出").font(.headline)
+                Text("预测支出").font(.headline)
                 Text("按已有计划预计").font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
@@ -343,6 +343,8 @@ struct ExpenseDetailView: View {
                         LabeledContent("开始日期", value: ExpenseRules.dateLabel(plan.start))
                         LabeledContent("结束日期", value: plan.end.map { ExpenseRules.dateLabel($0) } ?? "长期持续")
                         LabeledContent("发生方式", value: ExpenseRules.scheduleLabel(plan))
+                        LabeledContent("工作中断时", value: plan.pausesDuringWorkBreak == true ? "暂停，复工后继续" : "照常计入")
+                            .accessibilityIdentifier("expense.workBreakBehavior")
                     }
                     Section {
                         ForEach(0..<12, id: \.self) { offset in

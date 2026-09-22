@@ -87,7 +87,7 @@ enum FinancialMarkdown {
         if expenses.isEmpty { lines.append("未记录日常开支。") }
         for expense in expenses {
             guard let plan = expense.plan else { lines.append("- 一条开支数据损坏，无法读取。"); continue }
-            lines.append("- \(text(plan.name))：\(plan.frequency.title) \(money(plan.amount))（\(plan.estimated ? "预估" : "固定")）；\(date(plan.start)) 至 \(plan.end.map { date($0) } ?? "无结束日期")；\(ExpenseRules.scheduleLabel(plan))；\(ExpenseRules.status(plan, on: now))；备注：\(text(plan.note))\(ExpenseRules.error(plan).map { "；数据异常：" + $0 } ?? "")")
+            lines.append("- \(text(plan.name))：\(plan.frequency.title) \(money(plan.amount))（\(plan.estimated ? "预估" : "固定")）；\(date(plan.start)) 至 \(plan.end.map { date($0) } ?? "无结束日期")；\(ExpenseRules.scheduleLabel(plan))；\(ExpenseRules.status(plan, on: now))；\(plan.workBreakBehavior)；备注：\(text(plan.note))\(ExpenseRules.error(plan).map { "；数据异常：" + $0 } ?? "")")
         }
         lines += ["", "## 未来 12 个完整月份的已知支出", "", "含日常开支与负债还款本金、利息及费用；不含未录入消费。已确认并移出计划的还款不补记，信用卡账单与分期按应用规则去重。", "", "| 月份 | 日常开支 | 负债还款 | 合计 |", "| --- | ---: | ---: | ---: |"]
         for offset in 1...12 {

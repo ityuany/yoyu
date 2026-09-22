@@ -16,6 +16,16 @@ import Foundation
         precondition(months[2].total == 9000_00)
         precondition(months[3].repayment == 0)
         precondition(ExpenseForecast.total(months) == 44000_00)
+        var livingPlan = living.plan!
+        livingPlan.pausesDuringWorkBreak = true
+        living.planData = try JSONEncoder().encode(livingPlan)
+        let breaks = [ExpenseWorkBreak(start: ProfileRules.date(2026, 10, 1), end: ProfileRules.date(2026, 11, 30))]
+        let scenario = ExpenseForecast.months(expenses: [living, yearly], liabilities: [mortgage], after: ProfileRules.date(2026, 9, 22), count: 12, workBreaks: breaks)
+        precondition(scenario[0].daily == 0 && scenario[0].repayment == 1000_00)
+        precondition(scenario[1].total == 1000_00 && scenario[2].total == 9000_00)
+        precondition(ExpenseForecast.total(scenario) == 38000_00)
+        precondition(ExpectedExpenseRules.total(expenses: [living, yearly], liabilities: [mortgage], in: scenario[0].date, workBreaks: breaks) == scenario[0].total)
+        precondition(ExpenseForecast.total(ExpenseForecast.months(expenses: [living, yearly], liabilities: [mortgage], after: ProfileRules.date(2026, 9, 22), count: 12)) == 44000_00)
         yearly.planData = Data([0])
         precondition(ExpenseForecast.total(ExpenseForecast.months(expenses: [living, yearly], liabilities: [], after: Date(), count: 60)) == nil)
         print("ExpenseForecastTests passed")

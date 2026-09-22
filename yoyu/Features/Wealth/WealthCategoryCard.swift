@@ -18,7 +18,7 @@ enum WealthCategory: String, CaseIterable, Identifiable {
         case .cash: "日常储备"
         case .stocks: "已归属价值"
         case .investment: "当前估算金额"
-        case .compensation: "N+1 · 税前估算"
+        case .compensation: "税前估算"
         case .debt: "还款与账单"
         }
     }
@@ -31,7 +31,6 @@ enum WealthCategory: String, CaseIterable, Identifiable {
         case .debt: 0.04
         }
     }
-    var marker: Color { Color(hue: hue, saturation: 0.35, brightness: 0.65) }
 
     func ink(dark: Bool) -> Color {
         Color(hue: hue, saturation: dark ? 0.24 : 0.55, brightness: dark ? 0.94 : 0.32)
@@ -54,6 +53,7 @@ enum WealthCardGeometry {
 struct WealthCategoryCard<Content: View>: View {
     let category: WealthCategory
     let amount: String
+    var subtitle: String? = nil
     let isExpanded: Bool
     let toggle: () -> Void
     @ViewBuilder var content: Content
@@ -66,7 +66,7 @@ struct WealthCategoryCard<Content: View>: View {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(category.title).font(.headline)
-                        Text(category.subtitle).font(.caption).opacity(0.76)
+                        Text(subtitle ?? category.subtitle).font(.caption).opacity(0.76)
                     }
                     Spacer(minLength: 4)
                     Text(amount)

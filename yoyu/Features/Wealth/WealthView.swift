@@ -46,6 +46,7 @@ struct WealthView: View {
                     ZStack(alignment: .top) {
                         ForEach(WealthCategory.allCases) { category in
                             WealthCategoryCard(category: category, amount: categoryAmount(category),
+                                               subtitle: category == .compensation ? "\(scenario.settings?.plan.title ?? "待配置") · 税前估算" : nil,
                                                isExpanded: expandedCategory == category) {
                                 toggleCard(category)
                             } content: {

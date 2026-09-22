@@ -53,6 +53,40 @@ import SwiftData
         dated.end = date(2026, 12, 14)
         precondition(ExpenseRules.paymentPreview(dated).isEmpty)
 
+        // Legacy JSON has no pause key; it must remain readable and keep its amount.
+        let legacy = try JSONEncoder().encode(plan)
+        let legacyFields = try JSONSerialization.jsonObject(with: legacy) as! [String: Any]
+        precondition(legacyFields["pausesDuringWorkBreak"] == nil)
+        let legacyPlan = try JSONDecoder().decode(ExpensePlan.self, from: legacy)
+        precondition(legacyPlan.pausesDuringWorkBreak == nil)
+        var commute = ExpensePlan(name: "通勤", amount: 3100_00, start: date(2026, 1, 1))
+        let breaks = [ExpenseWorkBreak(start: date(2026, 1, 11), end: date(2026, 1, 20)),
+                      ExpenseWorkBreak(start: date(2026, 1, 15), end: date(2026, 1, 25))]
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: breaks) == 3100_00)
+        commute.pausesDuringWorkBreak = true
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1)) == 3100_00)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: breaks) == 1600_00)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 2, 1), workBreaks: breaks) == 3100_00)
+        let ongoing = [ExpenseWorkBreak(start: date(2026, 1, 1), end: nil)]
+        precondition(ExpenseRules.amount(commute, in: date(2026, 2, 1), workBreaks: ongoing) == 0)
+        commute.end = date(2026, 1, 28)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: breaks) == 1300_00)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 2, 1), workBreaks: breaks) == 0)
+        commute.end = nil; commute.spreadAcrossMonth = false; commute.dueDay = 20; commute.frequency = .quarterly
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: breaks) == 0)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 2, 1), workBreaks: breaks) == 0)
+        precondition(ExpenseRules.amount(commute, in: date(2026, 4, 1), workBreaks: breaks) == 3100_00)
+        commute.frequency = .yearly
+        let oneDay = [ExpenseWorkBreak(start: date(2026, 1, 20), end: date(2026, 1, 20))]
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: oneDay) == 0)
+        precondition(ExpenseRules.amount(commute, in: date(2027, 1, 1), workBreaks: oneDay) == 3100_00)
+        commute.pausesDuringWorkBreak = false
+        precondition(ExpenseRules.amount(commute, in: date(2026, 1, 1), workBreaks: oneDay) == 3100_00)
+        commute.pausesDuringWorkBreak = true
+        let roundTrip = try JSONDecoder().decode(ExpensePlan.self, from: JSONEncoder().encode(commute))
+        precondition(roundTrip.pausesDuringWorkBreak == true)
+        plan.pausesDuringWorkBreak = true
+
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -85,7 +119,7 @@ import SwiftData
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let context = ModelContext(container)
             let records = try context.fetch(FetchDescriptor<RecurringExpense>())
-            precondition(records.count == 2 && records.allSatisfy { $0.plan?.amount == 99_00 })
+            precondition(records.count == 2 && records.allSatisfy { $0.plan?.amount == 99_00 && $0.plan?.pausesDuringWorkBreak == true })
             try ExpenseStore.delete(id: id, context: context)
             let count = try context.fetchCount(FetchDescriptor<RecurringExpense>())
             precondition(count == 0)

@@ -3,6 +3,24 @@ import SwiftData
 
 @main struct CareerTests {
     @MainActor static func main() throws {
+        let calendar = ProfileRules.calendar
+        for (year, month, configured, expected) in [
+            (2026, 2, 31, 28), (2028, 2, 31, 29), (2100, 2, 31, 28),
+            (2026, 4, 31, 30), (2026, 3, 31, 31), (2026, 12, 31, 31),
+            (2026, 2, 29, 28), (2028, 2, 29, 29), (2026, 2, 30, 28),
+            (2026, 2, 10, 10), (2026, 2, 1, 1)
+        ] {
+            let actual = CareerRules.salaryPaymentDate(day: configured, inMonth: ProfileRules.date(year, month, 15))
+            precondition(actual == calendar.startOfDay(for: ProfileRules.date(year, month, expected)))
+        }
+        // 每个月使用原始配置 31 号计算，二月取月末不应将三月也改成 28 号。
+        for (month, expected) in [(1, 31), (2, 28), (3, 31), (4, 30), (5, 31)] {
+            let actual = CareerRules.salaryPaymentDate(day: 31, inMonth: ProfileRules.date(2026, month, 1))
+            precondition(actual == calendar.startOfDay(for: ProfileRules.date(2026, month, expected)))
+        }
+        for invalid in [0, 32, -1] {
+            precondition(CareerRules.salaryPaymentDate(day: invalid, inMonth: Date()) == nil)
+        }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -24,6 +42,8 @@ import SwiftData
             let stages = try context.fetch(FetchDescriptor<SalaryStage>())
             precondition(jobs.count == 1 && stages.count == 1)
             let job = jobs[0]
+            precondition(job.salaryPaymentDay == 10)
+            job.salaryPaymentDay = 15
             precondition(job.workweekMask == 126 && job.name.isEmpty)
             precondition(stages[0].salaryCents == old.salaryCents && stages[0].effectiveDate == nil)
             precondition(stages[0].bonusCents == old.bonusCents && old.careerMigrated)
@@ -63,6 +83,10 @@ import SwiftData
             let jobs = try context.fetch(FetchDescriptor<Employment>())
             let stages = try context.fetch(FetchDescriptor<SalaryStage>())
             precondition(jobs.count == 1 && stages.count == 2 && jobs[0].name == "测试企业")
+            precondition(jobs[0].salaryPaymentDay == 15)
+            jobs[0].salaryPaymentDay = 20
+            context.rollback()
+            precondition(jobs[0].salaryPaymentDay == 15)
             precondition(!jobs[0].followsHolidays)
             precondition(stages.allSatisfy { $0.employmentID == jobs[0].id })
         }

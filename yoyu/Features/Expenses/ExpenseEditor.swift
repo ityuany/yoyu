@@ -76,6 +76,20 @@ struct ExpenseEditor: View {
                          ? "按月估算，首尾不足整月时按有效天数折算，包含开始与结束当天。"
                          : "从首次扣款日起重复，每季度指每隔 3 个月。遇到没有该日期的月份取月末，之后恢复原日期；结束日期当天仍计入。")
                 }
+                Section {
+                    Toggle("工作中断期间暂停", isOn: Binding(
+                        get: { draft.pausesDuringWorkBreak == true },
+                        set: { draft.pausesDuringWorkBreak = $0 }
+                    ))
+                    .accessibilityIdentifier("expense.pauseDuringWorkBreak")
+                } header: { Text("与工作状态的关系") } footer: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("适用于通勤、工作餐等开支。失业或主动 gap 期间不计入，恢复工作后按原周期继续，仍受结束日期限制。未设置工作中断阶段时照常计入。")
+                        if draft.pausesDuringWorkBreak == true {
+                            Text(draft.spreadAcrossMonth ? "暂停天数不计入月度金额。" : "扣款日落在暂停期间时跳过该期，恢复后不补扣，也不改变原扣款日。")
+                        }
+                    }
+                }
                 Section("备注") { TextField("选填", text: $draft.note, axis: .vertical).lineLimit(2...4) }
                 if error == nil {
                     Section {

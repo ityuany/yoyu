@@ -25,9 +25,9 @@ struct SeveranceSettings: Codable, Equatable {
     var customAmountCents: Int64?
     var tripleAverageSalaryCents: Int64?
 
-    // 旧手动基数、年限与方案保留解码兼容，当前界面统一从职业履历推算。
+    // 保留所选预测方案；旧手动基数与年限仍统一从职业履历推算。
     var automatic: Self {
-        var result = Self()
+        var result = Self(plan: SeverancePlan.selectable.contains(plan) ? plan : .nPlusOne)
         result.tripleAverageSalaryCents = tripleAverageSalaryCents
         return result
     }

@@ -7,6 +7,7 @@ struct EmploymentEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var jobs: [Employment]
     @Query private var stages: [SalaryStage]
+    @State private var salaryPaymentDay: Int
     @State private var name: String
     @State private var start: Date
     @State private var ended: Bool
@@ -14,6 +15,7 @@ struct EmploymentEditor: View {
     @State private var error: String?
     init(job: Employment?) {
         self.job = job
+        _salaryPaymentDay = State(initialValue: job?.salaryPaymentDay ?? 10)
         _name = State(initialValue: job?.name ?? "")
         _start = State(initialValue: job?.start ?? Date())
         _ended = State(initialValue: job?.end != nil)
@@ -27,6 +29,17 @@ struct EmploymentEditor: View {
                     DatePicker("入职日期", selection: $start, in: ...Date(), displayedComponents: .date)
                     Toggle("已经离职", isOn: $ended)
                     if ended { DatePicker("离职日期", selection: $end, in: ...Date(), displayedComponents: .date) }
+                }
+                Section {
+                    Picker("每月发薪日", selection: $salaryPaymentDay) {
+                        ForEach(1...31, id: \.self) { day in
+                            Text("每月 \(day) 号").tag(day)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("employment.payday")
+                } footer: {
+                    Text("适用于这家公司的所有薪资阶段。遇到当月没有的日期，按月末计算。")
                 }
                 Section {
                     Text("保存任职经历后，可在详情中录入薪资阶段和工作安排。")
@@ -52,6 +65,7 @@ struct EmploymentEditor: View {
         guard validation == nil else { return }
         let value = job ?? Employment()
         if job == nil { context.insert(value) }
+        value.salaryPaymentDay = salaryPaymentDay
         value.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         value.start = ProfileRules.calendar.startOfDay(for: start)
         value.end = ended ? ProfileRules.calendar.startOfDay(for: end) : nil
@@ -246,3 +260,32 @@ struct EmploymentWorkEditor: View {
         }
     }
 }
+
+#if DEBUG
+struct EmploymentPaydayTestHost: View {
+    private let container: ModelContainer = {
+        let schema = Schema([Employment.self, SalaryStage.self, StockHolding.self, UserProfile.self])
+        let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let job = Employment()
+        job.name = "发薪日测试企业"
+        job.start = ProfileRules.date(2024, 1, 1)
+        container.mainContext.insert(job)
+        for year in [2024, 2025] {
+            let stage = SalaryStage()
+            stage.employmentID = job.id
+            stage.effectiveDate = ProfileRules.date(year, 1, 1)
+            stage.salaryCents = 2_000_000
+            container.mainContext.insert(stage)
+        }
+        try! container.mainContext.save()
+        return container
+    }()
+    var body: some View {
+        NavigationStack { CareerView(destination: .history) }
+            .modelContainer(container)
+            .environment(CareerClock())
+            .environment(AppNavigation())
+            .environment(\.locale, Locale(identifier: "zh_CN"))
+    }
+}
+#endif

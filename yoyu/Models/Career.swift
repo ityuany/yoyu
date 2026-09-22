@@ -12,6 +12,7 @@ final class Employment {
     var workweekMask: Int = 62
     var startMinutes: Int = 540
     var endMinutes: Int = 1080
+    var salaryPaymentDay: Int = 10
     var severanceData: Data?
     init() {}
     var displayName: String { name.isEmpty ? "企业名称待完善" : name }
@@ -35,6 +36,15 @@ final class SalaryStage {
 }
 
 enum CareerRules {
+    /// 根据目标月份独立计算，不存在的发薪日取月末，避免短月使后续月份日期漂移。
+    static func salaryPaymentDate(day: Int, inMonth date: Date) -> Date? {
+        let calendar = ProfileRules.calendar
+        guard (1...31).contains(day),
+              let month = calendar.dateInterval(of: .month, for: date),
+              let days = calendar.range(of: .day, in: .month, for: date) else { return nil }
+        return calendar.date(byAdding: .day, value: min(day, days.count) - 1, to: month.start)
+    }
+
     @MainActor static func deleteStage(id: String, employmentID: String, context: ModelContext) throws {
         do {
             let matches = try context.fetch(FetchDescriptor<SalaryStage>()).filter {

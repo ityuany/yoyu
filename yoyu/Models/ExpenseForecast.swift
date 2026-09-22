@@ -12,12 +12,12 @@ struct ExpenseForecastMonth: Identifiable {
 }
 
 enum ExpenseForecast {
-    static func months(expenses: [RecurringExpense], liabilities: [LiabilityAccount], after date: Date, count: Int) -> [ExpenseForecastMonth] {
+    static func months(expenses: [RecurringExpense], liabilities: [LiabilityAccount], after date: Date, count: Int, workBreaks: [ExpenseWorkBreak] = []) -> [ExpenseForecastMonth] {
         let accounts = LiabilityRules.accounts(liabilities)
         return (1...max(1, count)).map { offset in
             let month = ExpenseRules.calendar.date(byAdding: .month, value: offset, to: ExpenseRules.month(date))!
             let repayments = accounts.map { ExpectedExpenseRules.repayment($0, in: month) }
-            return ExpenseForecastMonth(date: month, daily: ExpenseRules.total(expenses, in: month),
+            return ExpenseForecastMonth(date: month, daily: ExpenseRules.total(expenses, in: month, workBreaks: workBreaks),
                 repayment: repayments.contains(where: { $0 == nil }) ? nil : LiabilityRules.sum(repayments.compactMap { $0 }))
         }
     }

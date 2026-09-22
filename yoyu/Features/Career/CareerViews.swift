@@ -134,6 +134,8 @@ private struct EmploymentDetail: View {
             if !isWork {
                 Section("任职信息") {
                     LabeledContent("企业名称", value: job.displayName)
+                    LabeledContent("每月发薪日", value: "每月 \(job.salaryPaymentDay) 号")
+                        .accessibilityIdentifier("employment.payday.summary")
                     LabeledContent("入职日期", value: CareerRules.dateLabel(job.start))
                     LabeledContent("离职日期", value: job.end.map { CareerRules.dateLabel($0) } ?? "目前在职")
                 }

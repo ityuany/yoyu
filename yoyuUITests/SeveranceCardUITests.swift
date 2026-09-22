@@ -2,6 +2,95 @@ import XCTest
 
 @MainActor
 final class SeveranceCardUITests: XCTestCase {
+    func testEmploymentPaydaySaveAndCancel() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--employment-payday-ui-test"]
+        app.launch()
+        let company = app.buttons.containing(.staticText, identifier: "发薪日测试企业").firstMatch
+        XCTAssertTrue(company.waitForExistence(timeout: 20))
+        company.tap()
+        let payday = app.descendants(matching: .any)["employment.payday.summary"].firstMatch
+        XCTAssertTrue(payday.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(payday.label.contains("每月 10 号"), app.debugDescription)
+        app.buttons["编辑任职"].tap()
+        let picker = app.buttons["employment.payday"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.tap()
+        app.buttons["每月 15 号"].tap()
+        app.buttons["取消"].tap()
+        XCTAssertTrue(payday.waitForExistence(timeout: 5))
+        XCTAssertTrue(payday.label.contains("每月 10 号"), app.debugDescription)
+        app.buttons["编辑任职"].tap()
+        picker.tap()
+        app.buttons["每月 15 号"].tap()
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "任职发薪日设置"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(payday.waitForExistence(timeout: 5))
+        XCTAssertTrue(payday.label.contains("每月 15 号"), app.debugDescription)
+        let detail = XCTAttachment(screenshot: app.screenshot())
+        detail.name = "任职发薪日详情"
+        detail.lifetime = .keepAlways
+        add(detail)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        company.tap()
+        XCTAssertTrue(payday.waitForExistence(timeout: 5))
+        XCTAssertTrue(payday.label.contains("每月 15 号"), app.debugDescription)
+        app.buttons["编辑任职"].tap()
+        XCTAssertTrue(picker.label.contains("15") || (picker.value as? String)?.contains("15") == true, picker.debugDescription)
+        app.buttons["取消"].tap()
+    }
+
+    func testPredictionPlanSaveAndCancel() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--severance-ui-test"]
+        app.launch()
+        let card = app.buttons.containing(.staticText, identifier: "裁员补偿").firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 20))
+        XCTAssertTrue(card.label.contains("160,000"), card.label)
+        card.tap()
+        app.swipeUp()
+        app.buttons["查看补偿方案"].tap()
+        app.buttons["补偿设置"].tap()
+        let plans = app.buttons
+        let defaultPlan = plans["severance.plan.nPlusOne"]
+        XCTAssertTrue(defaultPlan.waitForExistence(timeout: 5))
+        XCTAssertTrue(plans["severance.plan.n"].label.contains("140,000"))
+        XCTAssertTrue(defaultPlan.label.contains("160,000"))
+        XCTAssertTrue(plans["severance.plan.twoN"].label.contains("280,000"))
+        XCTAssertTrue(plans["severance.plan.nPlusOne"].isSelected)
+        plans["severance.plan.twoN"].tap()
+        app.buttons["取消"].tap()
+        app.buttons["补偿设置"].tap()
+        XCTAssertTrue(plans["severance.plan.nPlusOne"].isSelected)
+        plans["severance.plan.twoN"].tap()
+        let editorShot = XCTAttachment(screenshot: app.screenshot())
+        editorShot.name = "预测方案设置"
+        editorShot.lifetime = .keepAlways
+        add(editorShot)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["补偿"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.label.contains("280,000"), card.label)
+        XCTAssertTrue(card.label.contains("2N"), card.label)
+        let cardShot = XCTAttachment(screenshot: app.screenshot())
+        cardShot.name = "预测方案卡片联动"
+        cardShot.lifetime = .keepAlways
+        add(cardShot)
+        app.buttons["查看补偿方案"].tap()
+        app.buttons["补偿设置"].tap()
+        XCTAssertTrue(plans["severance.plan.twoN"].isSelected)
+        plans["severance.plan.n"].tap()
+        app.buttons["保存"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(card.label.contains("140,000"), card.label)
+    }
+
     func testCashDetailsNavigation() {
         continueAfterFailure = false
         let app = XCUIApplication()

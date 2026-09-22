@@ -8,9 +8,20 @@ import SwiftData
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
+            if ProcessInfo.processInfo.arguments.contains("--employment-payday-ui-test") {
+                EmploymentPaydayTestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--severance-ui-test") {
+                SeveranceTestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--forecast-prototype") {
+                NavigationStack { ForecastPrototypeView() }
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else if ProcessInfo.processInfo.arguments.contains("--expense-ui-test") {
+                NavigationStack { ExpenseExampleView() }
+                    .environment(CareerClock())
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
                 FinancialExportTestHost()
-            } else if ProcessInfo.processInfo.arguments.contains("--forecast-ui-test") {
+            } else if ProcessInfo.processInfo.arguments.contains("--forecast-ui-test") || ProcessInfo.processInfo.arguments.contains("--scenario-ui-test") || ProcessInfo.processInfo.arguments.contains("--scenario-demo") {
                 ForecastTestHost()
             } else if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
                 NavigationStack { LiabilityExampleView() }

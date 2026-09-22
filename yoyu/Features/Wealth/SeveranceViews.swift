@@ -41,6 +41,8 @@ struct SeveranceDetailView: View {
         List {
             if let job = scenario.job {
                 Section("预计补偿（税前）") {
+                    AdaptiveValueRow(title: "预测方案", value: scenario.settings?.plan.title ?? "待配置")
+                    AdaptiveValueRow(title: "预测补偿", value: ProfileRules.money(scenario.estimate?.amountCents))
                     ForEach(SeverancePlan.selectable) { plan in
                         AdaptiveValueRow(title: "补偿方案 \(plan.title)",
                                          value: scenario.estimate(for: plan, on: clock.now).map { ProfileRules.money($0.amountCents) } ?? "待完善")
@@ -106,3 +108,35 @@ struct SeveranceDetailView: View {
         }
     }
 }
+
+#if DEBUG
+struct SeveranceTestHost: View {
+    private let container: ModelContainer
+    private let clock = CareerClock()
+
+    init() {
+        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self,
+                             StockHolding.self, LiabilityAccount.self, RecurringExpense.self, ForecastScenarioRecord.self])
+        container = try! ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)])
+        clock.now = ProfileRules.calendar.date(from: DateComponents(year: 2026, month: 9, day: 22))!
+        let job = Employment()
+        job.name = "补偿测试企业"
+        job.start = ProfileRules.calendar.date(from: DateComponents(year: 2020, month: 1, day: 1))!
+        let salary = SalaryStage()
+        salary.employmentID = job.id
+        salary.effectiveDate = job.start
+        salary.salaryCents = 2_000_000
+        container.mainContext.insert(job)
+        container.mainContext.insert(salary)
+        try! container.mainContext.save()
+    }
+
+    var body: some View {
+        WealthView()
+            .modelContainer(container)
+            .environment(clock)
+            .environment(AppNavigation())
+            .environment(\.locale, Locale(identifier: "zh_CN"))
+    }
+}
+#endif
