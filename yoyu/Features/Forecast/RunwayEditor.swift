@@ -21,7 +21,9 @@ struct RunwayEditor: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("情景模式", value: draft.mode.title)
+                    Picker("情景模式", selection: $draft.mode) {
+                        ForEach(RunwayMode.allCases) { Text($0.title).tag($0) }
+                    }.accessibilityIdentifier("runway.mode")
                     if draft.mode != .employed {
                         if draft.lossDate != nil {
                             DatePicker("失业时间", selection: Binding(get: { draft.lossDate! }, set: { draft.lossDate = $0 }), in: RunwayEngine.day(clock.now)..., displayedComponents: .date)
@@ -77,6 +79,11 @@ struct RunwayEditor: View {
                 }
             }
             .onAppear {
+                salary = ProfileRules.input(draft.salary)
+                flexible = ProfileRules.input(draft.flexible)
+            }
+            .onChange(of: draft.mode) { _, next in
+                draft = RunwayStore.record(records, mode: next)?.plan ?? RunwayPlan(mode: next)
                 salary = ProfileRules.input(draft.salary)
                 flexible = ProfileRules.input(draft.flexible)
             }

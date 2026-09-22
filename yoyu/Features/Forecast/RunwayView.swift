@@ -20,6 +20,12 @@ struct RunwayView: View {
     @State private var requestID = UUID()
     private var shownResult: RunwayResult? { resultPlan?.mode == mode ? result : nil }
     private var shownPlan: RunwayPlan { resultPlan ?? plan }
+    @State private var cardFrame = CGRect.zero
+    @State private var expansionOrigin = CGRect.zero
+    @State private var breakdown = false
+    @State private var explaining = false
+    @State private var compensation = false
+    @State private var detail = false
     @State private var editing = false
     @State private var fullscreen = false
     @State private var example = false
@@ -48,66 +54,43 @@ struct RunwayView: View {
          stocks.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), expenses.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), liabilities.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined()].joined(separator: "|")
     }
     var body: some View {
+        ZStack {
+            home
+                .allowsHitTesting(!detail)
+                .accessibilityHidden(detail)
+            if detail { detailPage.transition(.identity).zIndex(1) }
+        }
+        .toolbar(detail ? .hidden : .visible, for: .tabBar)
+        .interactiveDismissDisabled(detail)
+    }
+    private var home: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 20) {
                     if isExample {
                         Label("示例数据 · 不影响你的账本", systemImage: "sparkles")
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("runway.example")
                     }
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("生存时长").font(.title2.bold())
-                        Text("把未来的生活，算得更清楚。")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        Picker("情景模式", selection: $mode) {
-                            ForEach(RunwayMode.allCases) { Text($0.title).tag($0) }
-                        }.pickerStyle(.segmented).accessibilityIdentifier("runway.mode")
+                    Button { presentDetail(true) } label: {
+                        cardHeader(expanded: false)
+                            .background(cardBackground, in: RoundedRectangle(cornerRadius: 28))
                     }
-                    if let result = shownResult {
-                        if updating { Label("正在按新设置更新…", systemImage: "arrow.trianglehead.2.clockwise.rotate.90").font(.caption).foregroundStyle(.secondary) }
-                        if let issue = result.issue { missing(issue) }
-                        else {
-                            hero(result)
-                            scenarioSummary
-                            if result.opening != nil {
-                                trend(result)
-                                assets(result)
-                                NavigationLink { RunwayBreakdown(result: result) } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            Text("收入与开支").font(.headline)
-                                            Text("查看每月收支与理财赎回").font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "arrow.up.right")
-                                    }.padding(20).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 22))
-                                }.buttonStyle(.plain).accessibilityIdentifier("runway.breakdown")
-                            }
-                        }
-                    } else {
-                        ProgressView("正在计算预测…").frame(maxWidth: .infinity, minHeight: 180)
-                    }
-                    NavigationLink { explanation } label: {
-                        Label("测算依据与说明", systemImage: "info.circle").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    if !isExample { Button("查看示例效果") { example = true }.font(.subheadline).accessibilityIdentifier("runway.demo") }
-                }.padding(20).padding(.bottom, 20)
+                    .buttonStyle(RunwayCardPressStyle())
+                    .accessibilityIdentifier("runway.card")
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { cardFrame = $0 }
+                }.padding(20)
             }
+            .accessibilityHidden(detail)
             .neutralPageBackground()
-            .navigationTitle("预测")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if isExample { ToolbarItem(placement: .primaryAction) { ExampleCloseButton() } }
             }
             .onAppear {
                 if !initialized { mode = RunwayStore.active(settings)?.mode ?? .employed; initialized = true }
             }
-            .onChange(of: mode) { _, next in
-                selection = nil
-                if next == .employed || RunwayStore.record(settings, mode: next) != nil {
-                    do { try RunwayStore.save(plan, records: settings, context: context) }
-                    catch { saveError = "情景选择未能保存，请重试。" }
-                }
+            .onChange(of: RunwayStore.active(settings)?.mode) { _, active in
+                if let active { mode = active; selection = nil }
             }
             .task(id: initialized ? key : "initializing") {
                 guard initialized else { return }
@@ -125,23 +108,98 @@ struct RunwayView: View {
                 result = next; resultPlan = currentPlan
             }
             .saveErrorAlert($saveError)
-            .sheet(isPresented: $editing) { RunwayEditor(records: settings, draft: plan) }
-            .sheet(isPresented: $editingAsset) { ProfileEditor(section: .wealth, profile: profile, wealthScope: assetScope) }
-            .sheet(isPresented: $example) { RunwayDemoHost() }
-            .fullScreenCover(isPresented: $fullscreen) {
-                if let result { RunwayFullscreen(result: result, plan: shownPlan, years: $years, selection: $selection) }
-            }
         }
     }
-    private func hero(_ r: RunwayResult) -> some View {
+    private var cardBackground: LinearGradient {
+        LinearGradient(colors: [DashboardStyle.cash.opacity(0.18), DashboardStyle.cash.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+    private var cardHeading: some View {
+        HStack {
+            Text("生存时长").font(.headline)
+            Spacer()
+        }
+    }
+    private func presentDetail(_ value: Bool) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if value { expansionOrigin = cardFrame }
+            detail = value
+        }
+    }
+    @ViewBuilder private func cardHeader(expanded: Bool) -> some View {
+        if let r = shownResult, r.issue == nil { hero(r, expanded: expanded) }
+        else {
+            VStack(alignment: .leading, spacing: 18) {
+                cardHeading
+                Text(shownResult?.issue == nil ? "正在计算预测…" : "还差一点资料").font(.title2.bold())
+                Text(shownResult?.issue ?? "正在整理你的收入、资产与开支。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("当前情景 · \(mode.title)").font(.caption).foregroundStyle(.secondary)
+            }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    private var detailPage: some View {
+        RunwayCardExpansion(source: expansionOrigin, onClose: { presentDetail(false) }) {
+            cardHeader(expanded: true)
+        } details: {
+            VStack(alignment: .leading, spacing: 28) {
+                if updating { Label("正在按新设置更新…", systemImage: "arrow.trianglehead.2.clockwise.rotate.90").font(.caption).foregroundStyle(.secondary) }
+                if let r = shownResult {
+                    if let issue = r.issue { missing(issue) }
+                    else {
+                        scenarioSummary
+                        if r.opening != nil {
+                            trend(r)
+                            assets(r)
+                            Button { breakdown = true } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text("收入与开支").font(.headline)
+                                        Text("查看每月收支与理财赎回").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                }.padding(20).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 22))
+                            }.buttonStyle(.plain).accessibilityIdentifier("runway.breakdown")
+                        }
+                    }
+                }
+                Button { explaining = true } label: {
+                    Label("测算依据与说明", systemImage: "info.circle").font(.subheadline).foregroundStyle(.secondary)
+                }
+                if !isExample { Button("查看示例效果") { example = true }.font(.subheadline).accessibilityIdentifier("runway.demo") }
+            }.padding(24)
+        }
+        .sheet(isPresented: $editing) { RunwayEditor(records: settings, draft: plan) }
+        .sheet(isPresented: $editingAsset) { ProfileEditor(section: .wealth, profile: profile, wealthScope: assetScope) }
+        .sheet(isPresented: $example) { RunwayDemoHost() }
+        .sheet(isPresented: $breakdown) {
+            NavigationStack {
+                if let r = shownResult { RunwayBreakdown(result: r).toolbar { ToolbarItem(placement: .topBarTrailing) { ExampleCloseButton() } } }
+            }
+        }
+        .sheet(isPresented: $explaining) {
+            NavigationStack { explanation.toolbar { ToolbarItem(placement: .topBarTrailing) { ExampleCloseButton() } } }
+        }
+        .sheet(isPresented: $compensation) {
+            NavigationStack { SeveranceDetailView().toolbar { ToolbarItem(placement: .topBarTrailing) { ExampleCloseButton() } } }
+        }
+        .fullScreenCover(isPresented: $fullscreen) {
+            if let result = shownResult { RunwayFullscreen(result: result, plan: shownPlan, years: $years, selection: $selection) }
+        }
+    }
+    private func hero(_ r: RunwayResult, expanded: Bool = false) -> some View {
         let before = (r.failure ?? .distantFuture) < r.origin
         return VStack(alignment: .leading, spacing: 16) {
+            cardHeading
+            Text("当前情景 · \(shownPlan.mode.title)").font(.subheadline.weight(.medium))
             Label(before ? "失业前资金不足" : r.sustainable ? "按当前配置" : r.failure == nil ? "按当前情景，至少可生存" : "按当前情景，预计可生存", systemImage: before ? "exclamationmark.circle" : "leaf")
                 .font(.subheadline).foregroundStyle(.secondary)
             Text(before ? "请调整失业计划" : r.sustainable ? "可持续生存" : r.duration)
                 .font(.system(size: 35, weight: .semibold, design: .rounded))
                 .minimumScaleFactor(0.7).lineLimit(1)
-                .accessibilityIdentifier("runway.result")
+                .accessibilityIdentifier(expanded ? "runway.detailResult" : "runway.result")
             Text(before ? "预计在 \(ExpenseRules.dateLabel(r.failure!)) 已无法支付开支，尚未到达失业日期。" : r.sustainable ? "工资、灵活收入或理财收益足以覆盖长期支出，且已有充足现金缓冲。" : r.failure.map { "预计在 \(ExpenseRules.dateLabel($0)) 首次无法支付到期支出" } ?? "在本次计算范围内，全部资金仍能支撑生活。")
                 .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider().overlay(DashboardStyle.cash.opacity(0.1))
@@ -152,15 +210,15 @@ struct RunwayView: View {
             }.font(.caption).foregroundStyle(.secondary)
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: [DashboardStyle.cash.opacity(0.18), DashboardStyle.cash.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 28))
     }
     private var scenarioSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("当前假设").font(.headline)
+                Text("当前情景").font(.headline)
                 Spacer()
                 Button("调整情景") { editing = true }.font(.subheadline).accessibilityIdentifier("runway.edit")
             }
+            summaryRow("情景模式", shownPlan.mode.title)
             if mode == .employed {
                 Text("继续在当前公司工作，沿用任职薪资与发薪日。")
             } else {
@@ -191,9 +249,10 @@ struct RunwayView: View {
                     editingAsset = true
                 } label: { preparationAction(message.contains("理财") ? "完善理财资料" : "登记现金余额") }
             } else if message.contains("补偿") {
-                NavigationLink { SeveranceDetailView() } label: { preparationAction("完善裁员补偿") }
+                Button { compensation = true } label: { preparationAction("完善裁员补偿") }
             } else {
                 Button {
+                    presentDetail(false)
                     navigation.selectedTab = message.contains("薪资") || message.contains("任职") ? .profile : .wealth
                 } label: { preparationAction(message.contains("薪资") || message.contains("任职") ? "完善任职与薪资" : "前往财富完善资料") }
             }
