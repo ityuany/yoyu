@@ -5,6 +5,7 @@ struct SeveranceEditor: View {
     let job: Employment
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query private var runwaySettings: [RunwaySettings]
     @Query private var stages: [SalaryStage]
     @Environment(CareerClock.self) private var clock
     @State private var plan: SeverancePlan
@@ -97,14 +98,19 @@ struct SeveranceEditor: View {
         }
     }
 
+    private var compensationDate: Date {
+        guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
+        return date
+    }
+
     private func amount(for option: SeverancePlan) -> String {
         guard validationError == nil else { return "待完善" }
         let settings = SeveranceSettings(plan: option, tripleAverageSalaryCents: ProfileRules.scaledValue(cap))
         let estimate = SeveranceRules.estimate(
             settings: settings, job: job,
-            salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: clock.now),
-            noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: clock.now),
-            on: clock.now)
+            salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: compensationDate),
+            noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: compensationDate),
+            on: compensationDate)
         return estimate.map { ProfileRules.money($0.amountCents) } ?? "待完善"
     }
 

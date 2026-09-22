@@ -302,3 +302,18 @@ swiftc yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Sev
 ### 旧预测模块移除
 
 旧预测页面、原型、专用情景计算与测试已移除，底部不再显示旧预测入口。财富中的预计支出、还款与理财测算，以及支出对工作中断区间的支持继续保留。新版本需求见根目录「预测模块需求讨论.md」。
+
+## 生存时长预测第一版
+
+```sh
+swiftc yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Severance,Liability,RecurringExpense,ExpectedExpense,Runway}.swift Tests/RunwayTests.swift -o /tmp/yoyu-runway-tests
+/tmp/yoyu-runway-tests
+```
+
+覆盖资产使用顺序、资金不足日期、失业前资金不足、失业日补偿、重新就业后赎回、必要资料缺失、还款去重、单利与复利赎回及情景持久化。`RunwayUITests` 使用独立内存示例验证取消、保存、情景切换、图表全屏及收支明细；按项目验收约定在同一已启动设备上分别执行浅色与深色测试。模拟器构建须使用 `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`，安装前验证实际产物签名。Debug 启动参数 `--runway-demo` 可直接查看示例，`--forecast` 打开个人预测页。
+
+### 预测算法性能与结果一致性
+
+执行 `bash Tests/run-runway-performance.sh`：顺序运行计算回归、5,784 个支出前缀及 40 组完整情景的新旧结果对照，再执行预热后各 5 次的交替计时。测试不访问用户资料。旧引擎冻结在 `Tests/Fixtures/RunwayBaselineEngine.swift`，仅用于测试，不进入 App。测试环境、全部测量值和适用范围见 [性能报告](RunwayPerformanceReport.md)。
+
+预测页面现在将值类型快照交给后台计算，并复用最多 3 份会话内结果。`RunwaySessionTests` 验证稳定索引、资料版本变化、缓存容量、任务取消与后续正常计算；已纳入性能验证脚本。UI 用例核对修改后的结果、切换回来后的结果及图表范围保留。

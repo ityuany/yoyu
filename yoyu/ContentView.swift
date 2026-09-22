@@ -8,7 +8,9 @@ import SwiftData
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--employment-payday-ui-test") {
+            if ProcessInfo.processInfo.arguments.contains("--runway-demo") {
+                RunwayDemoHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--employment-payday-ui-test") {
                 EmploymentPaydayTestHost()
             } else if ProcessInfo.processInfo.arguments.contains("--severance-ui-test") {
                 SeveranceTestHost()
@@ -64,8 +66,10 @@ enum WealthDestination: Hashable {
 }
 
 @Observable final class AppNavigation {
+    let runwayCache = RunwayCache()
     var selectedTab: AppTab = {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--forecast") { return .forecast }
         if ProcessInfo.processInfo.arguments.contains("--wealth") { return .wealth }
         if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
         #endif
@@ -101,6 +105,8 @@ struct ContentView: View {
                             TodayView()
                         } else if tab == .wealth {
                             WealthView()
+                        } else if tab == .forecast {
+                            RunwayView()
                         } else {
                             ProfileView()
                         }
@@ -130,6 +136,7 @@ struct ContentView: View {
 enum AppTab: CaseIterable, Identifiable {
     case today
     case wealth
+    case forecast
     case profile
 
     var id: Self { self }
@@ -138,6 +145,7 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "今日"
         case .wealth: "财富"
+        case .forecast: "预测"
         case .profile: "我的"
         }
     }
@@ -146,6 +154,7 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "sun.max"
         case .wealth: "wallet.bifold"
+        case .forecast: "chart.line.uptrend.xyaxis"
         case .profile: "person.crop.circle"
         }
     }

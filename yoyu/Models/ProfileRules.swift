@@ -30,7 +30,7 @@ enum ProfileRules {
         return NSDecimalNumber(decimal: rounded).int64Value
     }
 
-    static var calendar: Calendar {
+    nonisolated static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         return calendar
@@ -75,7 +75,7 @@ enum ProfileRules {
     }
 
     /// 可保存金额的上限，单位为分：1000 亿元。
-    static let maximumMoneyCents: Int64 = 100_000_000_000_00
+    nonisolated static let maximumMoneyCents: Int64 = 100_000_000_000_00
     /// 可保存百分比的上限，单位为基点：100%。
     static let maximumPercentBasisPoints: Int64 = 10_000
 

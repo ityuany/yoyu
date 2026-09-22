@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct WealthView: View {
+    @Query private var runwaySettings: [RunwaySettings]
     @Query private var profiles: [UserProfile]
     @Query private var holdings: [StockHolding]
     @Query private var jobs: [Employment]
@@ -16,7 +17,11 @@ struct WealthView: View {
 
     private var profile: UserProfile? { profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) } }
     private var stockValue: Int64? { StockRules.portfolio(holdings, profile: profile, on: clock.now) }
-    private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, now: clock.now) }
+    private var compensationDate: Date {
+        guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
+        return date
+    }
+    private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, now: compensationDate, employmentDate: clock.now) }
     private var compensation: Int64? { scenario.estimate?.amountCents }
     private var total: Int64? { StockRules.wealth(holdings, profile: profile, on: clock.now) }
     private var needsReview: Bool { StockRules.needsLegacyReview(holdings, profile: profile) && !holdings.isEmpty }
@@ -301,7 +306,7 @@ struct WealthView: View {
         let scenario = scenario
         guard let job = scenario.job, var settings = scenario.settings else { return "待完善" }
         settings.plan = plan
-        return SeveranceRules.estimate(settings: settings, job: job, salaryCents: scenario.salaryCents, noticeSalaryCents: scenario.noticeSalaryCents, on: clock.now)
+        return SeveranceRules.estimate(settings: settings, job: job, salaryCents: scenario.salaryCents, noticeSalaryCents: scenario.noticeSalaryCents, on: compensationDate)
             .map { ProfileRules.money($0.amountCents) } ?? "待完善"
     }
 
