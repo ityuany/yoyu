@@ -116,7 +116,7 @@ struct SeveranceTestHost: View {
 
     init() {
         let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self,
-                             StockHolding.self, LiabilityAccount.self, RecurringExpense.self, ForecastScenarioRecord.self])
+                             StockHolding.self, LiabilityAccount.self, RecurringExpense.self])
         container = try! ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)])
         clock.now = ProfileRules.calendar.date(from: DateComponents(year: 2026, month: 9, day: 22))!
         let job = Employment()

@@ -12,17 +12,14 @@ import SwiftData
                 EmploymentPaydayTestHost()
             } else if ProcessInfo.processInfo.arguments.contains("--severance-ui-test") {
                 SeveranceTestHost()
-            } else if ProcessInfo.processInfo.arguments.contains("--forecast-prototype") {
-                NavigationStack { ForecastPrototypeView() }
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
+
             } else if ProcessInfo.processInfo.arguments.contains("--expense-ui-test") {
                 NavigationStack { ExpenseExampleView() }
                     .environment(CareerClock())
                     .environment(\.locale, Locale(identifier: "zh_CN"))
             } else if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
                 FinancialExportTestHost()
-            } else if ProcessInfo.processInfo.arguments.contains("--forecast-ui-test") || ProcessInfo.processInfo.arguments.contains("--scenario-ui-test") || ProcessInfo.processInfo.arguments.contains("--scenario-demo") {
-                ForecastTestHost()
+
             } else if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
                 NavigationStack { LiabilityExampleView() }
                     .environment(CareerClock())
@@ -69,7 +66,6 @@ enum WealthDestination: Hashable {
 @Observable final class AppNavigation {
     var selectedTab: AppTab = {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--forecast") { return .forecast }
         if ProcessInfo.processInfo.arguments.contains("--wealth") { return .wealth }
         if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
         #endif
@@ -105,10 +101,8 @@ struct ContentView: View {
                             TodayView()
                         } else if tab == .wealth {
                             WealthView()
-                        } else if tab == .profile {
-                            ProfileView()
                         } else {
-                            ForecastView()
+                            ProfileView()
                         }
                     }
                     .tint(DashboardStyle.accent)
@@ -136,7 +130,6 @@ struct ContentView: View {
 enum AppTab: CaseIterable, Identifiable {
     case today
     case wealth
-    case forecast
     case profile
 
     var id: Self { self }
@@ -145,7 +138,6 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "今日"
         case .wealth: "财富"
-        case .forecast: "预测"
         case .profile: "我的"
         }
     }
@@ -154,7 +146,6 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "sun.max"
         case .wealth: "wallet.bifold"
-        case .forecast: "chart.line.uptrend.xyaxis"
         case .profile: "person.crop.circle"
         }
     }
