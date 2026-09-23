@@ -29,12 +29,12 @@ import XCTest
         app.swipeUp()
         shot(app, "滚动后边缘返回前")
         left.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.83, dy: 0.45)), withVelocity: .slow, thenHoldForDuration: 0.15)
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        waitForClosed(app)
         XCTAssertEqual(app.staticTexts["runway.result"].label, original)
         shot(app, "边缘返回原卡片")
         openCard(app)
         app.buttons["runway.closeDetail"].tap()
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        waitForClosed(app)
     }
     func testCardExpansionMotion() {
         continueAfterFailure = false
@@ -52,7 +52,7 @@ import XCTest
         XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: close)], timeout: 5) == .completed)
         shot(app, "卡片展开后")
         close.tap()
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        waitForClosed(app)
         XCTAssertEqual(card.frame.minY, originalFrame.minY, accuracy: 1)
         XCTAssertEqual(card.frame.height, originalFrame.height, accuracy: 1)
         XCTAssertEqual(app.staticTexts["runway.result"].label, originalResult)
@@ -61,7 +61,7 @@ import XCTest
         app.swipeUp()
         shot(app, "滚动后关闭前")
         close.tap()
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        waitForClosed(app)
         XCTAssertEqual(card.frame.minY, originalFrame.minY, accuracy: 1)
         XCTAssertEqual(app.staticTexts["runway.result"].label, originalResult)
         shot(app, "收回原卡片")
@@ -83,7 +83,7 @@ import XCTest
         XCTAssertTrue(app.buttons["runway.closeDetail"].waitForExistence(timeout: 5))
         shot(app, "展开预测详情")
         app.buttons["runway.closeDetail"].tap()
-        XCTAssertTrue(app.buttons["runway.card"].waitForExistence(timeout: 5))
+        waitForClosed(app)
         openCard(app)
         result = app.staticTexts["runway.detailResult"]
         app.buttons["runway.edit"].tap()
@@ -174,6 +174,11 @@ import XCTest
         let close = app.buttons["runway.closeDetail"]
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in close.isEnabled }, object: close)], timeout: 5) == .completed, "关闭按钮应在展开完成后启用")
+    }
+    private func waitForClosed(_ app: XCUIApplication) {
+        let card = app.buttons["runway.card"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in card.isHittable }, object: card)], timeout: 5) == .completed, "卡片应在收起完成后重新可点按")
     }
     private func waitForLabel(_ element: XCUIElement, differentFrom value: String) -> Bool {
         XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND label != %@", value), object: element)], timeout: 40) == .completed

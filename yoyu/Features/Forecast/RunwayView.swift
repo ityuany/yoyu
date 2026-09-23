@@ -76,6 +76,7 @@ struct RunwayView: View {
                             .background(cardBackground, in: RoundedRectangle(cornerRadius: 28))
                     }
                     .buttonStyle(RunwayCardPressStyle())
+                    .opacity(detail ? 0 : 1)
                     .accessibilityIdentifier("runway.card")
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { cardFrame = $0 }
                 }.padding(20)
