@@ -119,8 +119,7 @@ struct EmploymentTimelineRow: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 20)
-                    .background(colorScheme == .light ? Color(uiColor: .systemBackground) : Color(uiColor: .secondarySystemGroupedBackground),
-                                in: bookShape)
+                    .background(bookColor, in: bookShape)
                     .overlay {
                         bookShape.strokeBorder(Color.primary.opacity(colorScheme == .light ? 0.11 : 0.08), lineWidth: 1)
                     }
@@ -143,6 +142,12 @@ struct EmploymentTimelineRow: View {
     private var bookShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 10,
                                bottomTrailingRadius: 32, topTrailingRadius: 32)
+    }
+
+    private var bookColor: Color {
+        colorScheme == .light
+            ? Color(red: 247 / 255, green: 245 / 255, blue: 239 / 255)
+            : Color(red: 37 / 255, green: 35 / 255, blue: 31 / 255)
     }
 
     private var tenureLabel: String {
