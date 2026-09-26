@@ -244,20 +244,22 @@ import SwiftData
         early.employmentID = incomeJob.id
         early.effectiveDate = incomeJob.start
         early.salaryCents = 2_000_000
-        early.bonusCents = 12_000_000
         let later = SalaryStage()
         later.employmentID = incomeJob.id
         later.effectiveDate = date(2026, 3, 1)
         later.salaryCents = 4_000_000
-        later.bonusCents = 24_000_000
+        let bonus = BonusPayment()
+        bonus.employmentID = incomeJob.id
+        bonus.year = 2025
+        bonus.month = 12
+        bonus.amountCents = 18_000_000
         let incomeStages = [early, later]
-        precondition(SeveranceRules.averageSalary(stages: incomeStages, job: incomeJob, on: capDate) == 4_500_000)
+        precondition(SeveranceRules.averageSalary(stages: incomeStages, bonuses: [bonus], job: incomeJob, on: capDate) == 4_500_000)
         precondition(SeveranceRules.previousMonthSalary(stages: incomeStages, job: incomeJob, on: capDate) == 4_000_000)
         precondition(SeveranceRules.averageSalary(stages: [later], job: incomeJob, on: capDate) == nil)
         incomeJob.start = date(2026, 8, 16)
         later.effectiveDate = incomeJob.start
-        precondition(SeveranceRules.averageSalary(stages: [later], job: incomeJob, on: capDate) == 6_000_000)
-        later.bonusCents = nil
+        precondition(SeveranceRules.averageSalary(stages: [later], bonuses: [bonus], job: incomeJob, on: capDate) == 4_000_000)
         precondition(SeveranceRules.averageSalary(stages: [later], job: incomeJob, on: capDate) == 4_000_000)
         incomeJob.start = date(2026, 9, 1)
         precondition(SeveranceRules.averageSalary(stages: [later], job: incomeJob, on: capDate) == nil)

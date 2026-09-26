@@ -46,8 +46,8 @@ private struct ShortfallYear: Identifiable {
 struct PensionShortfallView: View {
     @Query private var jobs: [Employment]
     @Query private var salaries: [SalaryStage]
+    @Query private var bonuses: [BonusPayment]
     @Query private var contributions: [ContributionStage]
-    @Query private var proofMonths: [SocialInsuranceMonth]
     @Query private var limits: [SocialInsuranceLimit]
     @Environment(CareerClock.self) private var clock
     @State private var ranking: ShortfallRanking = .total
@@ -68,8 +68,8 @@ struct PensionShortfallView: View {
 
     var body: some View {
         let companies = PensionShortfallRules.calculate(
-            jobs: jobs, salaries: salaries, contributions: contributions,
-            proofMonths: proofMonths, limits: limits, through: clock.now
+            jobs: jobs, salaries: salaries, bonuses: bonuses, contributions: contributions,
+            limits: limits, through: clock.now
         )
         let yearlyAmounts = yearlyAmounts(for: companies)
         let visibleYears: [ShortfallYear] = if !showsAllYears, let latest = yearlyAmounts.last?.year {
@@ -169,7 +169,7 @@ struct PensionShortfallView: View {
                 Text("月均按已比较月份计算；差额率为累计基数差 ÷ 累计应缴基数。有差额月数只作辅助信息，不单独排名。")
             }
             Section("计算口径") {
-                Text("按已配置的基数范围估算至上月。首年采用入职月薪，后续年度采用上一年已登记月薪和年终奖的月平均值；个人部分按 8% 计算。工资或实际基数缺失的月份不计金额。此数不是已核实欠缴额，也不是未来少领的养老金。")
+                Text("按工资、官方基数范围及企业中配置的缴纳基数估算至上月。首年采用入职月薪，后续年度采用上一年已登记月薪和年终奖的月平均值；差额按配置的个人比例计算。缺少工资、基数或比例的月份不计金额。此数不是已核实欠缴额，也不是未来少领的养老金。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -363,46 +363,141 @@ private struct ShortfallRankingFullscreen: View {
     }
 }
 
-private struct PensionShortfallCompanyView: View {
+struct PensionMonthlyPaymentsView: View {
+    let job: Employment
+    @Environment(CareerClock.self) private var clock
+    @Query private var salaries: [SalaryStage]
+    @Query private var bonuses: [BonusPayment]
+    @Query private var contributions: [ContributionStage]
+    @Query private var limits: [SocialInsuranceLimit]
+
+    private var completed: [PensionShortfallMonth] {
+        PensionShortfallRules.calculate(
+            jobs: [job], salaries: salaries, bonuses: bonuses, contributions: contributions,
+            limits: limits, through: clock.now
+        ).first?.months ?? []
+    }
+
+    private var currentMonth: (date: Date, amount: Int64?)? {
+        let month = CareerRules.monthStart(clock.now)
+        guard let start = job.start, CareerRules.monthStart(start) <= month,
+              job.end == nil || job.end! >= month else { return nil }
+        let stage = CareerRules.contribution(contributions, for: job, kind: .pension, on: month)
+        return (month, ProfileRules.monthlyContribution(salaryCents: stage?.pensionBaseCents, rateBasisPoints: stage?.pensionBasisPoints))
+    }
+
+    var body: some View {
+        List {
+            if let currentMonth {
+                Section("本月") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(CareerRules.monthLabel(currentMonth.date))
+                            Spacer()
+                            Text(amountLabel(currentMonth.amount)).fontWeight(.semibold)
+                        }
+                        Text(currentMonth.amount == nil ? "待补缴纳基数或个人比例" : "本月进行中 · 按当前配置推算")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .monospacedDigit()
+                }
+            }
+            if completed.isEmpty && currentMonth == nil {
+                ContentUnavailableView("暂无逐月数据", systemImage: "calendar", description: Text("请先补全企业任职月份和养老保险缴纳配置。"))
+            } else {
+                Section {
+                    ForEach(completed) { item in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(CareerRules.monthLabel(item.month))
+                                Spacer()
+                                Text(amountLabel(item.configuredPaymentCents)).fontWeight(.semibold)
+                            }
+                            HStack {
+                                Text(item.comparison?.title ?? item.missing?.rawValue ?? "待补资料")
+                                    .foregroundStyle(statusColor(item.comparison))
+                                Spacer()
+                                if let expected = item.expectedPaymentCents {
+                                    Text("参考 \(ProfileRules.money(expected))")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .font(.subheadline)
+                            if let base = item.configuredBaseCents, let expected = item.expectedBaseCents {
+                                Text("配置基数 \(ProfileRules.money(base)) · 参考基数 \(ProfileRules.money(expected))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .monospacedDigit()
+                        .padding(.vertical, 3)
+                    }
+                } header: {
+                    Text("已结束月份")
+                } footer: {
+                    Text("每月金额按当月配置基数 × 个人比例推算；对比状态按配置基数与工资经官方上下限约束后的参考基数判断。")
+                }
+            }
+        }
+        .neutralPageBackground()
+        .listStyle(.insetGrouped)
+        .navigationTitle("逐月缴纳")
+    }
+
+    private func amountLabel(_ amount: Int64?) -> String {
+        amount.map { ProfileRules.money($0) } ?? "待补配置"
+    }
+
+    private func statusColor(_ comparison: PensionShortfallMonth.Comparison?) -> Color {
+        switch comparison {
+        case .matches: .green
+        case .above: .blue
+        case .below: .orange
+        case nil: .secondary
+        }
+    }
+}
+
+struct PensionShortfallCompanyView: View {
     let company: PensionShortfallCompany
 
     var body: some View {
         List {
             Section {
                 LabeledContent("疑似少缴 · 个人部分", value: ProfileRules.money(company.personalShortfallCents))
+                LabeledContent("少缴月份", value: "\(company.positiveCount) 个月")
                 LabeledContent("已比较", value: "\(company.comparableCount) 个月")
                 LabeledContent("待补资料", value: "\(company.missingCount) 个月")
             }
-            Section("逐月对照") {
-                ForEach(company.months) { item in
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(CareerRules.monthLabel(item.month))
-                                .font(.headline)
-                            Spacer()
-                            if let amount = item.personalShortfallCents {
-                                Text(ProfileRules.money(amount))
+            if company.shortfallMonths.isEmpty {
+                ContentUnavailableView(
+                    "暂无疑似少缴月份",
+                    systemImage: "checkmark.circle",
+                    description: Text(company.comparableCount == 0
+                                      ? "暂无可比较的月份，请补全工资、基数范围和缴纳配置。"
+                                      : "已比较的月份均未发现少缴。")
+                )
+            } else {
+                Section("少缴月份") {
+                    ForEach(company.shortfallMonths) { item in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(CareerRules.monthLabel(item.month))
                                     .font(.headline)
-                                    .foregroundStyle(amount > 0 ? .orange : .secondary)
-                            } else {
-                                Text("待补资料")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(ProfileRules.money(item.personalShortfallCents))
+                                    .font(.headline)
+                                    .foregroundStyle(.orange)
                             }
-                        }
-                        if let reason = item.missing {
-                            Text(reason.rawValue)
+                            Text("应缴基数 \(ProfileRules.money(item.expectedBaseCents)) · 配置基数 \(ProfileRules.money(item.configuredBaseCents))")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("应缴基数 \(ProfileRules.money(item.expectedBaseCents)) · 已记基数 \(ProfileRules.money(item.actualBaseCents))")
-                                .font(.subheadline)
-                            Text("基数差 \(ProfileRules.money(item.shortfallBaseCents)) · \(item.baseFromProof ? "逐月证明" : "生效记录沿用") · \(item.limitEvidence?.symbol ?? "")\(item.limitEvidence?.title ?? "")")
+                            Text("基数差 \(ProfileRules.money(item.shortfallBaseCents)) · 生效记录沿用 · \(item.limitEvidence?.symbol ?? "")\(item.limitEvidence?.title ?? "")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        .padding(.vertical, 3)
                     }
-                    .padding(.vertical, 3)
                 }
             }
         }

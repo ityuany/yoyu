@@ -131,8 +131,6 @@ struct SalaryEditor: View {
     @State private var showingMonthPicker = false
     @State private var hasDate: Bool
     @State private var salary: String
-    @State private var bonus: String
-    @State private var bonusMonth: Int
     @State private var reason: String
     @State private var error: String?
     @State private var confirmingDeletion = false
@@ -143,8 +141,6 @@ struct SalaryEditor: View {
         _hasDate = State(initialValue: stage == nil || stage?.effectiveDate != nil)
         _date = State(initialValue: stage?.effectiveDate ?? job.end ?? Date())
         _salary = State(initialValue: ProfileRules.input(source?.salaryCents))
-        _bonus = State(initialValue: ProfileRules.input(source?.bonusCents))
-        _bonusMonth = State(initialValue: source?.bonusMonth ?? 12)
         _reason = State(initialValue: stage?.reason ?? "")
     }
     var body: some View {
@@ -165,10 +161,6 @@ struct SalaryEditor: View {
                     number("税前月薪", text: $salary, unit: "元/月")
                 } header: { Text("薪资待遇") } footer: {
                     Text("留空表示未知，0 表示没有。")
-                }
-                Section("年终奖") {
-                    number("奖金数额", text: $bonus, unit: "元")
-                    Picker("发放月份", selection: $bonusMonth) { ForEach(1...12, id: \.self) { Text("\($0) 月").tag($0) } }
                 }
                 Section {
                     TextField("调整原因（选填）", text: $reason)
@@ -238,7 +230,7 @@ struct SalaryEditor: View {
         } label: { Text(title) }
     }
     private var validation: String? {
-        for (name, value, max) in [("月薪", salary, ProfileRules.maximumMoneyCents), ("奖金", bonus, ProfileRules.maximumMoneyCents)] {
+        for (name, value, max) in [("月薪", salary, ProfileRules.maximumMoneyCents)] {
             if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ProfileRules.scaledValue(value, maximum: max) == nil {
                 return "\(name)需为非负数，最多两位小数；比例不超过 100%，金额不超过 1000 亿元。"
             }
@@ -253,8 +245,6 @@ struct SalaryEditor: View {
         value.employmentID = job.id
         value.effectiveDate = hasDate ? CareerRules.monthStart(date) : nil
         value.salaryCents = ProfileRules.scaledValue(salary)
-        value.bonusCents = ProfileRules.scaledValue(bonus)
-        value.bonusMonth = bonusMonth
         value.reason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         if hasDate && value.reason == "沿用原有待遇，生效月份待补充" { value.reason = "" }
         value.modifiedAt = Date()
@@ -262,7 +252,7 @@ struct SalaryEditor: View {
     }
 }
 
-private struct YearMonthWheel: UIViewRepresentable {
+struct YearMonthWheel: UIViewRepresentable {
     @Binding var selection: Date
     var maximumDate: Date? = nil
 
@@ -314,9 +304,6 @@ struct ContributionEditor: View {
     @State private var effectiveMonth: Date
     @State private var draftMonth: Date
     @State private var showingMonthPicker = false
-    @State private var verifiedThroughMonth: Date?
-    @State private var draftVerifiedThroughMonth: Date = Date()
-    @State private var showingVerifiedThroughPicker = false
     @State private var pensionBase: String
     @State private var pensionRate: String
     @State private var housingBase: String
@@ -335,7 +322,6 @@ struct ContributionEditor: View {
         ) ?? initial
         _effectiveMonth = State(initialValue: normalizedMonth)
         _draftMonth = State(initialValue: normalizedMonth)
-        _verifiedThroughMonth = State(initialValue: record?.pensionVerifiedThroughMonth)
         _pensionBase = State(initialValue: ProfileRules.input(source?.pensionBaseCents))
         _pensionRate = State(initialValue: ProfileRules.input(source?.pensionBasisPoints))
         _housingBase = State(initialValue: ProfileRules.input(source?.housingBaseCents))
@@ -365,23 +351,6 @@ struct ContributionEditor: View {
                 Section("养老金") {
                     number("缴纳基数", text: $pensionBase, unit: "元/月")
                     number("个人比例", text: $pensionRate, unit: "%")
-                    Button {
-                        draftVerifiedThroughMonth = verifiedThroughMonth ?? effectiveMonth
-                        showingVerifiedThroughPicker = true
-                    } label: {
-                        HStack {
-                            Text("已核实沿用至").foregroundStyle(.primary)
-                            Spacer()
-                            Text(verifiedThroughMonth.map(CareerRules.monthLabel) ?? "未填写")
-                                .foregroundStyle(.secondary)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    if verifiedThroughMonth != nil {
-                        Button("清除核实月份") { verifiedThroughMonth = nil }
-                    }
                 }
                 }
                 if kind == .housing {
@@ -391,7 +360,7 @@ struct ContributionEditor: View {
                 }
                 }
                 Section {} footer: {
-                    Text("请按实际生效月份填写；“已核实沿用至”只表示确认过的月份，不自动推断之后的缴纳情况。")
+                    Text("从生效月份起按这组基数和比例自动累计，直到下一次调整或任职结束。")
                 }
                 if let validation { Section { Text(validation).foregroundStyle(.red) } }
                 if record != nil {
@@ -432,31 +401,6 @@ struct ContributionEditor: View {
                 .presentationDetents([.height(300)])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showingVerifiedThroughPicker) {
-                NavigationStack {
-                    YearMonthWheel(selection: $draftVerifiedThroughMonth)
-                        .frame(height: 200)
-                        .padding(.horizontal)
-                        .frame(maxHeight: .infinity, alignment: .top)
-                        .navigationTitle("选择核实月份")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("取消") { showingVerifiedThroughPicker = false }
-                            }
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("完成") {
-                                    verifiedThroughMonth = ProfileRules.calendar.date(
-                                        from: ProfileRules.calendar.dateComponents([.year, .month], from: draftVerifiedThroughMonth)
-                                    )
-                                    showingVerifiedThroughPicker = false
-                                }
-                            }
-                        }
-                }
-                .presentationDetents([.height(300)])
-                .presentationDragIndicator(.visible)
-            }
             .saveErrorAlert($error)
         }
     }
@@ -487,9 +431,6 @@ struct ContributionEditor: View {
             return "请填写住房公积金缴纳基数或个人比例。"
         }
         guard let selectedMonth else { return "请选择生效月份。" }
-        if kind == .pension, let verifiedThroughMonth, verifiedThroughMonth < selectedMonth {
-            return "核实月份不能早于生效月份。"
-        }
         return CareerRules.contributionError(month: selectedMonth, id: record?.id, job: job, values: records, kind: kind)
     }
     private var selectedMonth: Date? {
@@ -512,8 +453,6 @@ struct ContributionEditor: View {
             if kind == .pension {
                 record.pensionBaseCents = nil
                 record.pensionBasisPoints = nil
-                record.pensionVerifiedThroughMonth = nil
-                record.pensionBaseEvidence = nil
             } else {
                 record.housingBaseCents = nil
                 record.housingBasisPoints = nil
@@ -523,10 +462,8 @@ struct ContributionEditor: View {
         value.employmentID = job.id
         value.effectiveMonth = effectiveMonth
         if kind == .pension {
-            if record?.pensionBaseCents != ProfileRules.scaledValue(pensionBase) { value.pensionBaseEvidence = nil }
             value.pensionBaseCents = ProfileRules.scaledValue(pensionBase)
             value.pensionBasisPoints = ProfileRules.scaledValue(pensionRate, maximum: ProfileRules.maximumPercentBasisPoints)
-            value.pensionVerifiedThroughMonth = verifiedThroughMonth
         }
         if kind == .housing {
             value.housingBaseCents = ProfileRules.scaledValue(housingBase)
@@ -541,8 +478,6 @@ struct ContributionEditor: View {
             if kind == .pension {
                 value.pensionBaseCents = nil
                 value.pensionBasisPoints = nil
-                value.pensionVerifiedThroughMonth = nil
-                value.pensionBaseEvidence = nil
             } else {
                 value.housingBaseCents = nil
                 value.housingBasisPoints = nil
@@ -618,8 +553,13 @@ struct EmploymentWorkEditor: View {
 
 #if DEBUG
 struct EmploymentPaydayTestHost: View {
+    private let clock: CareerClock = {
+        let clock = CareerClock()
+        clock.now = ProfileRules.date(2026, 9, 26)
+        return clock
+    }()
     private let container: ModelContainer = {
-        let schema = Schema([Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, StockHolding.self, UserProfile.self])
+        let schema = Schema([Employment.self, SalaryStage.self, BonusPayment.self, ContributionStage.self, SocialInsuranceLimit.self, StockHolding.self, UserProfile.self])
         let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         let job = Employment()
         job.name = "发薪日测试企业"
@@ -636,9 +576,12 @@ struct EmploymentPaydayTestHost: View {
         return container
     }()
     var body: some View {
-        NavigationStack { CareerView(destination: .history) }
+        NavigationStack {
+            CareerView(destination: .history)
+                .navigationDestination(for: CareerDestination.self) { CareerView(destination: $0) }
+        }
             .modelContainer(container)
-            .environment(CareerClock())
+            .environment(clock)
             .environment(AppNavigation())
             .environment(\.locale, Locale(identifier: "zh_CN"))
     }

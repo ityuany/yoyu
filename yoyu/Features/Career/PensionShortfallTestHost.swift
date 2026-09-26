@@ -5,14 +5,14 @@ import SwiftData
 struct PensionShortfallTestHost: View {
     private let container: ModelContainer? = {
         do {
-            let schema = Schema([Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, SocialInsuranceLimit.self])
+            let schema = Schema([Employment.self, SalaryStage.self, BonusPayment.self, ContributionStage.self, SocialInsuranceLimit.self])
             let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let context = ModelContext(container)
             let job = Employment()
             job.name = "测试企业"
             job.start = ProfileRules.date(2024, 1, 1)
-            job.end = ProfileRules.date(2024, 2, 29)
+            job.end = ProfileRules.date(2024, 3, 31)
             context.insert(job)
             let salary = SalaryStage()
             salary.employmentID = job.id
@@ -23,7 +23,14 @@ struct PensionShortfallTestHost: View {
             contribution.employmentID = job.id
             contribution.effectiveMonth = ProfileRules.date(2024, 1, 1)
             contribution.pensionBaseCents = 800_000
+            contribution.pensionBasisPoints = 800
             context.insert(contribution)
+            let matchingContribution = ContributionStage()
+            matchingContribution.employmentID = job.id
+            matchingContribution.effectiveMonth = ProfileRules.date(2024, 3, 1)
+            matchingContribution.pensionBaseCents = 1_000_000
+            matchingContribution.pensionBasisPoints = 800
+            context.insert(matchingContribution)
             let limit = SocialInsuranceLimit()
             limit.effectiveMonth = ProfileRules.date(2024, 1, 1)
             limit.lowerCents = 500_000
@@ -43,6 +50,7 @@ struct PensionShortfallTestHost: View {
             longContribution.employmentID = longJob.id
             longContribution.effectiveMonth = ProfileRules.date(2024, 1, 1)
             longContribution.pensionBaseCents = 900_000
+            longContribution.pensionBasisPoints = 800
             context.insert(longContribution)
             try context.save()
             return container
@@ -52,10 +60,15 @@ struct PensionShortfallTestHost: View {
     var body: some View {
         Group {
             if let container {
+                let primaryJob = (try? container.mainContext.fetch(FetchDescriptor<Employment>()))?.first { $0.name == "测试企业" }
                 NavigationStack {
                     List {
                         NavigationLink("疑似少缴") { PensionShortfallView() }
                             .accessibilityIdentifier("pension.shortfall")
+                        if let primaryJob {
+                            NavigationLink("逐月缴纳") { PensionMonthlyPaymentsView(job: primaryJob) }
+                                .accessibilityIdentifier("pension.monthlyPayments")
+                        }
                     }
                     .navigationTitle("养老保险")
                 }

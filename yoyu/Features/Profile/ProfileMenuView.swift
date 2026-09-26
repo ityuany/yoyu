@@ -28,11 +28,11 @@ struct ProfileMenuView: View {
                     Label("企业履历", systemImage: "building.2")
                 }
                 NavigationLink(value: CareerDestination.pension) {
-                    Label("养老保险", systemImage: "cross.case")
+                    Label("养老保险分析", systemImage: "cross.case")
                 }
                 .accessibilityIdentifier("profile.pension")
                 NavigationLink(value: CareerDestination.housing) {
-                    Label("住房公积金", systemImage: "house")
+                    Label("住房公积金分析", systemImage: "house")
                 }
                 .accessibilityIdentifier("profile.housing")
                 NavigationLink(value: ProfileRoute.holidays) {

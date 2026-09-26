@@ -152,12 +152,12 @@ nonisolated struct RunwayInvestment: Sendable {
         }
         return nil
     }
-    static func compensation(plan: RunwayPlan, jobs: [Employment], stages: [SalaryStage], today: Date) -> Int64? {
+    static func compensation(plan: RunwayPlan, jobs: [Employment], stages: [SalaryStage], bonuses: [BonusPayment] = [], today: Date) -> Int64? {
         guard plan.mode != .employed else { return 0 }
         guard let date = plan.lossDate, let job = CareerRules.current(jobs, on: today),
               job.severanceData != nil, let settings = SeveranceRules.settings(for: job)?.automatic else { return nil }
         return SeveranceRules.estimate(settings: settings, job: job,
-            salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: date),
+            salaryCents: SeveranceRules.averageSalary(stages: stages, bonuses: bonuses, job: job, on: date),
             noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: date), on: date)?.amountCents
     }
 
@@ -209,7 +209,7 @@ nonisolated struct RunwayInvestment: Sendable {
         return calendar.date(byAdding: .day, value: min(day, count) - 1, to: month)
     }
 
-    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int? = nil) async -> RunwayResult {
+    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], bonuses: [BonusPayment] = [], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int? = nil) async -> RunwayResult {
         let today = day(today)
         let origin = plan.mode == .employed ? today : day(plan.lossDate ?? today)
         var result = RunwayResult(origin: origin, end: today)
@@ -238,7 +238,7 @@ nonisolated struct RunwayInvestment: Sendable {
         if plan.mode == .employed || origin > today {
             guard let job, CareerRules.salary(stages, for: job, on: today)?.salaryCents != nil else { return invalid("请在职业履历中补全当前任职及薪资。") }
         }
-        guard let compensation = compensation(plan: plan, jobs: jobs, stages: stages, today: today) else { return invalid("请在财富的裁员补偿中保存预测方案，并补全计算所需薪资记录。") }
+        guard let compensation = compensation(plan: plan, jobs: jobs, stages: stages, bonuses: bonuses, today: today) else { return invalid("请在财富的裁员补偿中保存预测方案，并补全计算所需薪资记录。") }
         result.compensation = compensation
         let breaks: [ExpenseWorkBreak] = plan.mode == .employed ? [] : [.init(start: origin, end: plan.mode == .temporary ? plan.returnDate.map { calendar.date(byAdding: .day, value: -1, to: day($0))! } : nil)]
         // Materialize model-backed values once. Daily simulation never needs to

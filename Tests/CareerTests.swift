@@ -24,7 +24,7 @@ import SwiftData
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let schema = Schema([UserProfile.self, Employment.self, SalaryStage.self])
+        let schema = Schema([UserProfile.self, Employment.self, SalaryStage.self, BonusPayment.self])
         let config = ModelConfiguration(schema: schema, url: directory.appendingPathComponent("career.store"), cloudKitDatabase: .none)
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
@@ -47,6 +47,12 @@ import SwiftData
             precondition(job.workweekMask == 126 && job.name.isEmpty)
             precondition(stages[0].salaryCents == old.salaryCents && stages[0].effectiveDate == nil)
             precondition(stages[0].bonusCents == old.bonusCents && old.careerMigrated)
+            try BonusRules.importLegacyStagePayments(context: context)
+            try BonusRules.importLegacyStagePayments(context: context)
+            let imported = try context.fetch(FetchDescriptor<BonusPayment>())
+            precondition(imported.count == 1 && imported[0].year == nil)
+            precondition(imported[0].amountCents == old.bonusCents && stages[0].bonusCents == nil)
+            precondition(BonusRules.total(imported, for: job) == nil)
             try CareerRules.migrate(context: context, profiles: [old], jobs: jobs, stages: stages)
             let count = try context.fetchCount(FetchDescriptor<Employment>())
             precondition(count == 1)

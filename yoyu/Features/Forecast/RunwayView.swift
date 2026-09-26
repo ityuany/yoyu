@@ -7,6 +7,7 @@ struct RunwayView: View {
     @Query private var stocks: [StockHolding]
     @Query private var jobs: [Employment]
     @Query private var stages: [SalaryStage]
+    @Query private var bonuses: [BonusPayment]
     @Query private var expenses: [RecurringExpense]
     @Query private var liabilities: [LiabilityAccount]
     @Query private var settings: [RunwaySettings]
@@ -94,7 +95,7 @@ struct RunwayView: View {
                 }
                 updating = true
                 defer { if requestID == request { updating = false } }
-                let next = await RunwayEngine.calculate(plan: currentPlan, profile: profile, stocks: stocks, jobs: jobs, stages: stages, expenses: expenses, liabilities: liabilities, today: clock.now)
+                let next = await RunwayEngine.calculate(plan: currentPlan, profile: profile, stocks: stocks, jobs: jobs, stages: stages, bonuses: bonuses, expenses: expenses, liabilities: liabilities, today: clock.now)
                 guard !Task.isCancelled, requestID == request, key == currentKey else { return }
                 navigation.runwayCache.store(next, for: currentKey)
                 result = next; resultPlan = currentPlan

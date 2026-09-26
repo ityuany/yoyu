@@ -44,13 +44,21 @@ enum SeveranceRules {
     }
 
     /// 最近 12 个完整自然月；不足 12 个月按本企业实际任职月数（零月按日折算）。
-    /// 薪资阶段中的年终奖按 12 个月分摊，不读取股票、理财等资产。
-    static func averageSalary(stages: [SalaryStage], job: Employment, on date: Date) -> Int64? {
+    /// 将计算期内实际收到的税前年终奖计入，不读取股票等资产。
+    static func averageSalary(stages: [SalaryStage], bonuses: [BonusPayment] = [], job: Employment, on date: Date) -> Int64? {
         let calendar = ProfileRules.calendar
         guard let end = calendar.dateInterval(of: .month, for: date)?.start,
               let start = calendar.date(byAdding: .month, value: -12, to: end),
               let hire = job.start else { return nil }
-        return monthlyIncome(stages: stages, job: job, start: max(start, calendar.startOfDay(for: hire)), end: end, includeBonus: true)
+        let lower = max(start, calendar.startOfDay(for: hire))
+        guard let (salaryTotal, months) = incomeTotals(stages: stages, job: job, start: lower, end: end) else { return nil }
+        let bonusTotal = BonusRules.confirmed(bonuses, for: job).reduce(Decimal.zero) { sum, payment in
+            guard let year = payment.year,
+                  let paid = calendar.date(from: DateComponents(year: year, month: payment.month, day: 1)),
+                  paid >= lower, paid < end else { return sum }
+            return sum + Decimal(payment.amountCents ?? 0)
+        }
+        return roundedAverage(salaryTotal + bonusTotal, months: months)
     }
 
     static func previousMonthSalary(stages: [SalaryStage], job: Employment, on date: Date) -> Int64? {
@@ -58,10 +66,11 @@ enum SeveranceRules {
         guard let end = calendar.dateInterval(of: .month, for: date)?.start,
               let start = calendar.date(byAdding: .month, value: -1, to: end),
               let hire = job.start else { return nil }
-        return monthlyIncome(stages: stages, job: job, start: max(start, calendar.startOfDay(for: hire)), end: end, includeBonus: false)
+        guard let (total, months) = incomeTotals(stages: stages, job: job, start: max(start, calendar.startOfDay(for: hire)), end: end) else { return nil }
+        return roundedAverage(total, months: months)
     }
 
-    private static func monthlyIncome(stages: [SalaryStage], job: Employment, start: Date, end: Date, includeBonus: Bool) -> Int64? {
+    private static func incomeTotals(stages: [SalaryStage], job: Employment, start: Date, end: Date) -> (Decimal, Decimal)? {
         guard start < end else { return nil }
         let calendar = ProfileRules.calendar
         let stages = CareerRules.stages(stages, for: job)
@@ -75,16 +84,18 @@ enum SeveranceRules {
         while cursor < end {
             guard let stage = dated.last(where: { $0.date <= cursor })?.stage,
                   let salary = validMoney(stage.salaryCents),
-                  let bonus = validMoney(includeBonus ? (stage.bonusCents ?? 0) : 0),
                   let month = calendar.dateInterval(of: .month, for: cursor),
                   let days = calendar.range(of: .day, in: .month, for: cursor)?.count else { return nil }
             let next = min(end, month.end, dated.first(where: { $0.date > cursor })?.date ?? end)
             let fraction = Decimal(calendar.dateComponents([.day], from: cursor, to: next).day!) / Decimal(days)
-            total += (Decimal(salary) + Decimal(bonus) / 12) * fraction
+            total += Decimal(salary) * fraction
             months += fraction
             cursor = next
         }
-        guard months > 0 else { return nil }
+        return months > 0 ? (total, months) : nil
+    }
+
+    private static func roundedAverage(_ total: Decimal, months: Decimal) -> Int64? {
         var average = total / months
         var rounded = Decimal.zero
         NSDecimalRound(&rounded, &average, 0, .plain)

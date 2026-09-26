@@ -7,6 +7,7 @@ struct SeveranceEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var runwaySettings: [RunwaySettings]
     @Query private var stages: [SalaryStage]
+    @Query private var bonuses: [BonusPayment]
     @Environment(CareerClock.self) private var clock
     @State private var plan: SeverancePlan
     @State private var cap: String
@@ -108,7 +109,7 @@ struct SeveranceEditor: View {
         let settings = SeveranceSettings(plan: option, tripleAverageSalaryCents: ProfileRules.scaledValue(cap))
         let estimate = SeveranceRules.estimate(
             settings: settings, job: job,
-            salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: compensationDate),
+            salaryCents: SeveranceRules.averageSalary(stages: stages, bonuses: bonuses, job: job, on: compensationDate),
             noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: compensationDate),
             on: compensationDate)
         return estimate.map { ProfileRules.money($0.amountCents) } ?? "待完善"

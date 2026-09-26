@@ -14,20 +14,42 @@ struct HousingShortfallMonth: Identifiable {
     let expectedBaseCents: Int64?
     let recordedBaseCents: Int64?
     let rateBasisPoints: Int64?
+    let configuredPaymentCents: Int64?
     let limitEvidence: LimitEvidence?
     let personalShortfallCents: Int64?
     let missing: Missing?
 
     var id: String { "\(employmentID)-\(ProfileRules.dateKey(month))" }
+    var expectedPaymentCents: Int64? {
+        ProfileRules.monthlyContribution(salaryCents: expectedBaseCents, rateBasisPoints: rateBasisPoints)
+    }
+    var comparison: Comparison? {
+        guard missing == nil, let expectedBaseCents, let recordedBaseCents else { return nil }
+        if recordedBaseCents < expectedBaseCents { return .below }
+        if recordedBaseCents > expectedBaseCents { return .above }
+        return .matches
+    }
+
+    enum Comparison {
+        case matches, above, below
+        var title: String {
+            switch self {
+            case .matches: "符合预期"
+            case .above: "高于预期"
+            case .below: "低于预期"
+            }
+        }
+    }
 }
 
 struct HousingShortfallCompany: Identifiable {
     let job: Employment
     let months: [HousingShortfallMonth]
     var id: String { job.id }
+    var shortfallMonths: [HousingShortfallMonth] { months.filter { ($0.personalShortfallCents ?? 0) > 0 } }
     var comparableCount: Int { months.filter { $0.personalShortfallCents != nil }.count }
     var missingCount: Int { months.count - comparableCount }
-    var positiveCount: Int { months.filter { ($0.personalShortfallCents ?? 0) > 0 }.count }
+    var positiveCount: Int { shortfallMonths.count }
     var personalShortfallCents: Int64 { months.compactMap(\.personalShortfallCents).reduce(0, +) }
 }
 
@@ -57,6 +79,7 @@ enum HousingShortfallRules {
                 let stage = CareerRules.contribution(contributions, for: job, kind: .housing, on: month)
                 let base = stage?.housingBaseCents
                 let rate = stage?.housingBasisPoints
+                let payment = ProfileRules.monthlyContribution(salaryCents: base, rateBasisPoints: rate)
                 let expected = wage.flatMap { wage in limit.map { min(max(wage, $0.lowerCents), $0.upperCents) } }
                 let missing: HousingShortfallMonth.Missing? = wage == nil ? .salary
                     : limit == nil ? .limit : base == nil ? .base
@@ -66,7 +89,8 @@ enum HousingShortfallRules {
                 results.append(HousingShortfallMonth(
                     employmentID: job.id, month: month, wageCents: wage,
                     expectedBaseCents: expected, recordedBaseCents: base,
-                    rateBasisPoints: rate, limitEvidence: limit?.evidence,
+                    rateBasisPoints: rate, configuredPaymentCents: payment,
+                    limitEvidence: limit?.evidence,
                     personalShortfallCents: amount, missing: missing
                 ))
                 guard let next = calendar.date(byAdding: .month, value: 1, to: month) else { break }

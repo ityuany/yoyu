@@ -2,6 +2,99 @@ import XCTest
 
 @MainActor
 final class SeveranceCardUITests: XCTestCase {
+    func testCompanyPensionRecordsUseDetailTimeline() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--employment-payday-ui-test"]
+        app.launch()
+
+        let company = app.buttons.containing(.staticText, identifier: "发薪日测试企业").firstMatch
+        XCTAssertTrue(company.waitForExistence(timeout: 20))
+        company.tap()
+        app.buttons.containing(.staticText, identifier: "累计养老").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["养老保险"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["待补全配置"].exists)
+        XCTAssertTrue(app.staticTexts["还没有基数调整记录，点右上角添加。"].exists)
+
+        app.navigationBars["养老保险"].buttons["新增养老保险记录"].tap()
+        XCTAssertTrue(app.navigationBars["新增养老保险记录"].waitForExistence(timeout: 5))
+        let base = app.textFields["缴纳基数"]
+        XCTAssertTrue(base.exists)
+        base.tap()
+        base.typeText("8000")
+        let rate = app.textFields["个人比例"]
+        rate.tap()
+        rate.typeText("8")
+        app.navigationBars["新增养老保险记录"].buttons["保存"].tap()
+
+        XCTAssertTrue(app.staticTexts["缴纳基数时间轴"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["疑似少缴"].exists)
+        XCTAssertTrue(app.staticTexts["¥ 640.00"].exists)
+        app.buttons["pension.monthlyPayments"].tap()
+        XCTAssertTrue(app.navigationBars["逐月缴纳"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["本月进行中 · 按当前配置推算"].exists)
+        XCTAssertTrue(app.staticTexts["¥ 640.00"].exists)
+        app.navigationBars["逐月缴纳"].buttons.firstMatch.tap()
+        let stage = app.buttons.containing(.staticText, identifier: "¥ 8,000.00").firstMatch
+        XCTAssertTrue(stage.waitForExistence(timeout: 5))
+        stage.tap()
+        XCTAssertTrue(app.navigationBars["修改养老保险记录"].waitForExistence(timeout: 5))
+        app.buttons["删除养老保险记录"].tap()
+        app.buttons["删除"].tap()
+        XCTAssertTrue(app.staticTexts["还没有基数调整记录，点右上角添加。"].waitForExistence(timeout: 5))
+    }
+
+    func testCompensationTimelinesAreSeparateAndEditable() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--employment-payday-ui-test"]
+        app.launch()
+        let company = app.buttons.containing(.staticText, identifier: "发薪日测试企业").firstMatch
+        XCTAssertTrue(company.waitForExistence(timeout: 20))
+        company.tap()
+        XCTAssertTrue(app.staticTexts["累计月薪"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["累计年终"].exists)
+
+        app.buttons.containing(.staticText, identifier: "当前月薪").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["薪资变化"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["调薪时间轴"].exists)
+        let salaryTimelineShot = XCTAttachment(screenshot: app.screenshot())
+        salaryTimelineShot.name = "薪资变化时间轴对齐"
+        salaryTimelineShot.lifetime = .keepAlways
+        add(salaryTimelineShot)
+        app.navigationBars["薪资变化"].buttons.firstMatch.tap()
+
+        app.buttons.containing(.staticText, identifier: "最近年终奖").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["年终奖记录"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["还没有年终奖记录"].exists)
+        XCTAssertTrue(app.staticTexts["这家企业没有发放年终奖时，无需添加记录。"].exists)
+        XCTAssertFalse(app.buttons["记录一笔年终奖"].exists)
+        app.navigationBars["年终奖记录"].buttons["新增年终奖"].tap()
+        XCTAssertTrue(app.navigationBars["新增年终奖"].waitForExistence(timeout: 5))
+        app.buttons.containing(.staticText, identifier: "发放年月").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["选择发放年月"].waitForExistence(timeout: 5))
+        app.navigationBars["选择发放年月"].buttons["确定"].tap()
+        let amount = app.textFields["税前年终奖金额"]
+        XCTAssertTrue(amount.exists)
+        amount.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 3) { amount.tap() }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        amount.typeText("5000")
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["年终奖记录"].exists)
+        let record = app.buttons.containing(.staticText, identifier: "¥ 5,000.00").firstMatch
+        XCTAssertTrue(record.waitForExistence(timeout: 5), app.debugDescription)
+        let bonusTimelineShot = XCTAttachment(screenshot: app.screenshot())
+        bonusTimelineShot.name = "年终奖时间轴对齐"
+        bonusTimelineShot.lifetime = .keepAlways
+        add(bonusTimelineShot)
+        record.tap()
+        XCTAssertTrue(app.navigationBars["编辑年终奖"].waitForExistence(timeout: 5))
+        app.buttons["删除年终奖记录"].tap()
+        app.buttons["删除记录"].tap()
+        XCTAssertTrue(app.navigationBars["年终奖记录"].waitForExistence(timeout: 5))
+    }
+
     func testSalaryStageMonthEntry() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -10,8 +103,8 @@ final class SeveranceCardUITests: XCTestCase {
         let company = app.buttons.containing(.staticText, identifier: "发薪日测试企业").firstMatch
         XCTAssertTrue(company.waitForExistence(timeout: 20))
         company.tap()
-        let addStage = app.buttons["记录调薪／补录阶段"]
-        for _ in 0..<4 where !addStage.exists { app.swipeUp() }
+        app.buttons.containing(.staticText, identifier: "当前月薪").firstMatch.tap()
+        let addStage = app.buttons["新增薪资阶段"]
         XCTAssertTrue(addStage.waitForExistence(timeout: 5), app.debugDescription)
         addStage.tap()
         let month = app.buttons["salary.effectiveMonth"]
@@ -26,7 +119,7 @@ final class SeveranceCardUITests: XCTestCase {
         add(shot)
         app.navigationBars["选择生效月份"].buttons["确定"].tap()
         app.navigationBars["新增薪资阶段"].buttons["保存"].tap()
-        XCTAssertTrue(app.staticTexts["薪资阶段"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["调薪时间轴"].waitForExistence(timeout: 5), app.debugDescription)
     }
 
     func testEmploymentMonthEntry() {
@@ -67,6 +160,7 @@ final class SeveranceCardUITests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
         app.buttons["保存"].tap()
+        for _ in 0..<4 where !app.staticTexts["离职月份"].exists { app.swipeUp() }
         XCTAssertTrue(app.staticTexts["离职月份"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["编辑任职"].tap()
         let savedEnd = app.buttons["employment.endMonth"]
@@ -86,6 +180,7 @@ final class SeveranceCardUITests: XCTestCase {
         XCTAssertTrue(company.waitForExistence(timeout: 20))
         company.tap()
         let payday = app.descendants(matching: .any)["employment.payday.summary"].firstMatch
+        for _ in 0..<4 where !payday.exists { app.swipeUp() }
         XCTAssertTrue(payday.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(payday.label.contains("每月 10 号"), app.debugDescription)
         app.buttons["编辑任职"].tap()
@@ -112,6 +207,7 @@ final class SeveranceCardUITests: XCTestCase {
         add(detail)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         company.tap()
+        for _ in 0..<4 where !payday.exists { app.swipeUp() }
         XCTAssertTrue(payday.waitForExistence(timeout: 5))
         XCTAssertTrue(payday.label.contains("每月 15 号"), app.debugDescription)
         app.buttons["编辑任职"].tap()

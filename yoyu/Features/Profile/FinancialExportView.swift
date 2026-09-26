@@ -61,8 +61,8 @@ struct FinancialExportView: View {
                 profiles: try context.fetch(FetchDescriptor<UserProfile>()),
                 jobs: try context.fetch(FetchDescriptor<Employment>()),
                 stages: try context.fetch(FetchDescriptor<SalaryStage>()),
+                bonuses: try context.fetch(FetchDescriptor<BonusPayment>()),
                 contributions: try context.fetch(FetchDescriptor<ContributionStage>()),
-                socialInsuranceMonths: try context.fetch(FetchDescriptor<SocialInsuranceMonth>()),
                 holdings: try context.fetch(FetchDescriptor<StockHolding>()),
                 liabilities: try context.fetch(FetchDescriptor<LiabilityAccount>()),
                 expenses: try context.fetch(FetchDescriptor<RecurringExpense>()), now: Date())

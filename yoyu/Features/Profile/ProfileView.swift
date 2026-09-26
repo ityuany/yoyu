@@ -73,7 +73,10 @@ struct ProfileView: View {
             }
             .task { await sync.checkAccount() }
             .task(id: profiles.map { "\($0.createdAt)-\($0.employmentUpdatedAt?.description ?? "")-\($0.careerMigrated)" }.joined()) {
-                do { try CareerRules.migrate(context: context, profiles: profiles, jobs: jobs, stages: stages) }
+                do {
+                    try CareerRules.migrate(context: context, profiles: profiles, jobs: jobs, stages: stages)
+                    try BonusRules.importLegacyStagePayments(context: context)
+                }
                 catch { migrationError = "原始资料已保留，企业履历衔接失败：\(error.localizedDescription)" }
             }
             .saveErrorAlert($migrationError)

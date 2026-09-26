@@ -1,6 +1,21 @@
 import XCTest
 
 @MainActor final class PensionShortfallUITests: XCTestCase {
+    func testMonthlyPaymentComparison() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--pension-shortfall-ui-test"]
+        app.launch()
+        let entry = app.buttons["pension.monthlyPayments"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        entry.tap()
+        XCTAssertTrue(app.navigationBars["逐月缴纳"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["低于预期"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["符合预期"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["2024 年 3 月"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["¥ 640.00"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["参考 ¥ 800.00"].firstMatch.exists)
+    }
+
     func testCompanyAndMonthlyEstimate() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -24,5 +39,8 @@ import XCTest
         shortCompany.tap()
         XCTAssertTrue(app.navigationBars["测试企业"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "应缴基数")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["少缴月份"].exists)
+        XCTAssertTrue(app.staticTexts["2024 年 2 月"].exists)
+        XCTAssertFalse(app.staticTexts["2024 年 3 月"].exists)
     }
 }

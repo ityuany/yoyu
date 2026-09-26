@@ -31,11 +31,67 @@ final class SalaryStage {
     var pensionBaseCents: Int64?
     var housingBasisPoints: Int64?
     var housingBaseCents: Int64?
+    // Read only by the one-time import into BonusPayment. Kept in the store schema
+    // so an existing development database can be opened before that import runs.
     var bonusCents: Int64?
     var bonusMonth: Int = 12
     var reason: String = ""
     var modifiedAt: Date = Date()
     init() {}
+}
+
+@Model
+final class BonusPayment {
+    var id: String = UUID().uuidString
+    var employmentID: String = ""
+    // Older salary stages never recorded which year a payment belonged to.
+    // They remain visible for review, but do not enter totals until dated.
+    var year: Int?
+    var month: Int = 12
+    var amountCents: Int64?
+    var modifiedAt: Date = Date()
+    init() {}
+}
+
+enum BonusRules {
+    static func payments(_ values: [BonusPayment], for job: Employment) -> [BonusPayment] {
+        Dictionary(grouping: values.filter { $0.employmentID == job.id }, by: \.id).values
+            .compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }
+            .sorted { ($0.year ?? Int.min, $0.month, $0.modifiedAt) > ($1.year ?? Int.min, $1.month, $1.modifiedAt) }
+    }
+
+    static func confirmed(_ values: [BonusPayment], for job: Employment) -> [BonusPayment] {
+        payments(values, for: job).filter { $0.year != nil && $0.amountCents != nil }
+    }
+
+    static func total(_ values: [BonusPayment], for job: Employment) -> Int64? {
+        let amounts = confirmed(values, for: job).compactMap(\.amountCents)
+        guard !amounts.isEmpty else { return nil }
+        return amounts.reduce(0, +)
+    }
+
+    @MainActor static func importLegacyStagePayments(context: ModelContext) throws {
+        let stages = try context.fetch(FetchDescriptor<SalaryStage>())
+        var existing = Set(try context.fetch(FetchDescriptor<BonusPayment>()).map(\.id))
+        var changed = false
+        for stage in stages {
+            guard let amount = stage.bonusCents else { continue }
+            let id = "salary-stage-bonus-\(stage.id)"
+            if !existing.contains(id) {
+                let payment = BonusPayment()
+                payment.id = id
+                payment.employmentID = stage.employmentID
+                payment.month = stage.bonusMonth
+                payment.amountCents = amount
+                context.insert(payment)
+                existing.insert(id)
+            }
+            stage.bonusCents = nil
+            changed = true
+        }
+        guard changed else { return }
+        do { try context.save() } catch { context.rollback(); throw error }
+    }
 }
 
 @Model
@@ -45,30 +101,8 @@ final class ContributionStage {
     var effectiveMonth: Date = Date()
     var pensionBaseCents: Int64?
     var pensionBasisPoints: Int64?
-    var pensionVerifiedThroughMonth: Date?
-    var pensionBaseEvidence: String?
     var housingBaseCents: Int64?
     var housingBasisPoints: Int64?
-    var modifiedAt: Date = Date()
-    init() {}
-}
-
-/// 参保证明原始逐月事实，用于核对实缴和基数来源；基数的业务时间线由 ContributionStage 表示。
-@Model
-final class SocialInsuranceMonth {
-    var id: String = UUID().uuidString
-    var employmentID: String = ""
-    var month: Date = Date()
-    var payerName: String = ""
-    var pensionBaseCents: Int64?
-    var pensionPersonalCents: Int64?
-    var pensionBaseConverted: Bool = false
-    var unemploymentBaseCents: Int64?
-    var unemploymentPersonalCents: Int64?
-    var injuryBaseCents: Int64?
-    var remark: String = ""
-    var sourceName: String = ""
-    var sourceFingerprint: String = ""
     var modifiedAt: Date = Date()
     init() {}
 }
@@ -81,6 +115,37 @@ enum ContributionKind: Hashable {
     func base(_ record: ContributionStage) -> Int64? { self == .pension ? record.pensionBaseCents : record.housingBaseCents }
     func rate(_ record: ContributionStage) -> Int64? { self == .pension ? record.pensionBasisPoints : record.housingBasisPoints }
     func hasValues(_ record: ContributionStage) -> Bool { base(record) != nil || rate(record) != nil }
+}
+
+struct ContributionEstimate {
+    let amountCents: Int64
+    let coveredMonths: Int
+}
+
+enum ContributionEstimateRules {
+    static func calculate(_ records: [ContributionStage], for job: Employment, kind: ContributionKind, through date: Date) -> ContributionEstimate? {
+        guard let jobStart = job.start else { return nil }
+        let calendar = ProfileRules.calendar
+        let first = CareerRules.monthStart(jobStart)
+        let last = CareerRules.monthStart(min(job.end ?? date, date))
+        guard first <= last else { return nil }
+        let stages = CareerRules.contributions(records, for: job, kind: kind)
+        var month = first
+        var amount: Int64 = 0
+        var covered = 0
+        while month <= last {
+            if let stage = stages.first(where: { $0.effectiveMonth <= month }),
+               let monthly = ProfileRules.monthlyContribution(salaryCents: kind.base(stage), rateBasisPoints: kind.rate(stage)) {
+                let (total, totalOverflow) = amount.addingReportingOverflow(monthly)
+                guard !totalOverflow else { return nil }
+                amount = total
+                covered += 1
+            }
+            guard let next = calendar.date(byAdding: .month, value: 1, to: month) else { return nil }
+            month = next
+        }
+        return covered == 0 ? nil : ContributionEstimate(amountCents: amount, coveredMonths: covered)
+    }
 }
 
 enum CareerRules {
@@ -132,54 +197,6 @@ enum CareerRules {
         if changed {
             do { try context.save() } catch { context.rollback(); throw error }
         }
-    }
-
-    /// 将证明里的基数变化点归入与手工调整相同的时间线，重复运行不会产生重复记录。
-    @MainActor static func importPensionBaseChanges(context: ModelContext) throws {
-        let months = try context.fetch(FetchDescriptor<SocialInsuranceMonth>())
-        guard months.contains(where: { !$0.pensionBaseConverted }) else { return }
-        let deduplicated = Dictionary(grouping: months, by: \.id).values
-            .compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }
-        var stages = try context.fetch(FetchDescriptor<ContributionStage>())
-        var changed = false
-        for (employmentID, values) in Dictionary(grouping: deduplicated, by: \.employmentID) {
-            let ordered = values.filter { $0.pensionBaseCents != nil }.sorted { $0.month < $1.month }
-            var previousBase: Int64?
-            for month in ordered {
-                guard let base = month.pensionBaseCents else { continue }
-                defer { previousBase = base }
-                guard base != previousBase else { continue }
-                let effectiveMonth = ProfileRules.calendar.dateInterval(of: .month, for: month.month)?.start ?? month.month
-                if let existing = stages.first(where: {
-                    $0.employmentID == employmentID &&
-                    ProfileRules.calendar.isDate($0.effectiveMonth, equalTo: effectiveMonth, toGranularity: .month)
-                }) {
-                    // 人工记录优先；不覆盖用户已填的基数或比例。
-                    if existing.pensionBaseCents == nil {
-                        existing.pensionBaseCents = base
-                        existing.pensionBaseEvidence = month.sourceName
-                        existing.modifiedAt = Date()
-                        changed = true
-                    }
-                    continue
-                }
-                let record = ContributionStage()
-                let parts = ProfileRules.calendar.dateComponents([.year, .month], from: effectiveMonth)
-                record.id = "pension-proof-\(employmentID)-\(parts.year ?? 0)-\(parts.month ?? 0)"
-                record.employmentID = employmentID
-                record.effectiveMonth = effectiveMonth
-                record.pensionBaseCents = base
-                record.pensionBaseEvidence = month.sourceName
-                context.insert(record)
-                stages.append(record)
-                changed = true
-            }
-        }
-        for month in months where !month.pensionBaseConverted {
-            month.pensionBaseConverted = true
-            changed = true
-        }
-        if changed { try context.save() }
     }
 
     /// 按生效月份查询基数；下一条生效前一直沿用，离职后不再继续。

@@ -81,6 +81,6 @@ extension View {
 extension View {
     func neutralPageBackground() -> some View {
         scrollContentBackground(.hidden)
-            .background(DashboardStyle.background.ignoresSafeArea())
+            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
     }
 }

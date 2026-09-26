@@ -5,7 +5,7 @@ import SwiftData
     let container: ModelContainer
     let clock = CareerClock()
     init() {
-        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
+        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, BonusPayment.self, ContributionStage.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
         container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         clock.now = ProfileRules.date(2026, 9, 22)
         let p = UserProfile()

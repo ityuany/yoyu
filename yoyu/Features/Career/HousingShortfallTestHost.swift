@@ -12,7 +12,7 @@ struct HousingShortfallTestHost: View {
             let job = Employment()
             job.name = "测试企业"
             job.start = ProfileRules.date(2024, 1, 1)
-            job.end = ProfileRules.date(2024, 2, 29)
+            job.end = ProfileRules.date(2024, 3, 31)
             context.insert(job)
             let salary = SalaryStage()
             salary.employmentID = job.id
@@ -25,6 +25,12 @@ struct HousingShortfallTestHost: View {
             contribution.housingBaseCents = 800_000
             contribution.housingBasisPoints = 1_200
             context.insert(contribution)
+            let matchingContribution = ContributionStage()
+            matchingContribution.employmentID = job.id
+            matchingContribution.effectiveMonth = ProfileRules.date(2024, 3, 1)
+            matchingContribution.housingBaseCents = 1_000_000
+            matchingContribution.housingBasisPoints = 1_200
+            context.insert(matchingContribution)
             let limit = HousingFundLimit()
             limit.effectiveMonth = job.start!
             limit.lowerCents = 500_000
@@ -38,10 +44,17 @@ struct HousingShortfallTestHost: View {
     var body: some View {
         Group {
             if let container {
+                let primaryJob = (try? container.mainContext.fetch(FetchDescriptor<Employment>()))?.first
                 NavigationStack {
                     List {
                         NavigationLink("疑似少缴") { HousingShortfallView() }
                             .accessibilityIdentifier("housing.shortfall")
+                        if let primaryJob {
+                            NavigationLink("企业公积金") { ContributionOverview(job: primaryJob, kind: .housing) }
+                                .accessibilityIdentifier("housing.companyOverview")
+                            NavigationLink("逐月缴纳") { HousingMonthlyPaymentsView(job: primaryJob) }
+                                .accessibilityIdentifier("housing.monthlyPayments")
+                        }
                     }
                     .navigationTitle("住房公积金")
                 }

@@ -184,7 +184,7 @@ final class AppStorageController {
 
     private func openStore(cloud: Bool) {
         do {
-            let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, SocialInsuranceLimit.self, SocialInsuranceLimitSeedState.self, HousingFundLimit.self, HousingFundLimitSeedState.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
+            let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, BonusPayment.self, ContributionStage.self, SocialInsuranceLimit.self, SocialInsuranceLimitSeedState.self, HousingFundLimit.self, HousingFundLimitSeedState.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
             // Keep the existing default store location in both modes. Never copy or delete it.
             let configuration = ModelConfiguration(schema: schema, cloudKitDatabase: cloud ? .private(SyncMonitor.containerID) : .none)
             container = try ModelContainer(for: schema, configurations: [configuration])
@@ -193,8 +193,8 @@ final class AppStorageController {
                 catch { sync.activityMessage = "任职月份整理未完成：\(error.localizedDescription)" }
                 do { try CareerRules.normalizeSalaryStageMonths(context: ModelContext(container)) }
                 catch { sync.activityMessage = "薪资月份整理未完成：\(error.localizedDescription)" }
-                do { try CareerRules.importPensionBaseChanges(context: ModelContext(container)) }
-                catch { sync.activityMessage = "养老保险基数整理未完成：\(error.localizedDescription)" }
+                do { try BonusRules.importLegacyStagePayments(context: ModelContext(container)) }
+                catch { sync.activityMessage = "年终奖记录整理未完成：\(error.localizedDescription)" }
                 do { try SocialInsuranceLimitDefaults.importIfNeeded(context: ModelContext(container)) }
                 catch { sync.activityMessage = "社保上下限默认资料导入未完成：\(error.localizedDescription)" }
                 do { try HousingFundLimitDefaults.importIfNeeded(context: ModelContext(container)) }

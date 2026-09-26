@@ -2,7 +2,7 @@ import Foundation
 
 /// A read-only snapshot. All totals use the same rules as the financial screens.
 enum FinancialMarkdown {
-    static func make(profiles: [UserProfile], jobs: [Employment], stages: [SalaryStage], contributions: [ContributionStage] = [], socialInsuranceMonths: [SocialInsuranceMonth] = [], holdings: [StockHolding], liabilities: [LiabilityAccount], expenses: [RecurringExpense], now: Date) -> String {
+    static func make(profiles: [UserProfile], jobs: [Employment], stages: [SalaryStage], bonuses: [BonusPayment] = [], contributions: [ContributionStage] = [], holdings: [StockHolding], liabilities: [LiabilityAccount], expenses: [RecurringExpense], now: Date) -> String {
         let wealth = profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) }
         let basic = profiles.max { $0.updatedAt(for: .basic) < $1.updatedAt(for: .basic) }
         let jobs = CareerRules.employments(jobs)
@@ -23,23 +23,21 @@ enum FinancialMarkdown {
             let salary = CareerRules.stages(stages, for: job)
             if salary.isEmpty { lines.append("- 薪资阶段：未记录") }
             for stage in salary {
-                lines.append("- 生效 \(CareerRules.employmentMonthLabel(stage.effectiveDate))：月薪 \(money(stage.salaryCents))；年终奖 \(money(stage.bonusCents))，\(stage.bonusMonth) 月发放；原因：\(text(stage.reason))")
+                lines.append("- 生效 \(CareerRules.employmentMonthLabel(stage.effectiveDate))：月薪 \(money(stage.salaryCents))；原因：\(text(stage.reason))")
+            }
+            let payments = BonusRules.payments(bonuses, for: job)
+            if payments.isEmpty { lines.append("- 税前年终奖实发：未记录") }
+            for payment in payments {
+                lines.append("- 年终奖实发 \(payment.year.map { "\($0) 年" } ?? "年份待确认") \(payment.month) 月：\(money(payment.amountCents))")
             }
             let paymentRecords = CareerRules.contributions(contributions, for: job)
             if paymentRecords.isEmpty { lines.append("- 养老保险与住房公积金缴纳记录：未录入") }
             for record in paymentRecords {
                 if record.pensionBaseCents != nil || record.pensionBasisPoints != nil {
-                    lines.append("- 养老保险生效 \(date(record.effectiveMonth))：缴纳基数 \(money(record.pensionBaseCents))、个人比例 \(percent(record.pensionBasisPoints))\(record.pensionVerifiedThroughMonth.map { "；已核实沿用至 \(CareerRules.monthLabel($0))" } ?? "")")
+                    lines.append("- 养老保险生效 \(date(record.effectiveMonth))：缴纳基数 \(money(record.pensionBaseCents))、个人比例 \(percent(record.pensionBasisPoints))")
                 }
                 if record.housingBaseCents != nil || record.housingBasisPoints != nil {
                     lines.append("- 住房公积金生效 \(date(record.effectiveMonth))：缴纳基数 \(money(record.housingBaseCents))、个人比例 \(percent(record.housingBasisPoints))")
-                }
-            }
-            let documentedMonths = socialInsuranceMonths.filter { $0.employmentID == job.id }.sorted { $0.month < $1.month }
-            if !documentedMonths.isEmpty {
-                lines.append("- 社保参保证明实缴：\(documentedMonths.count) 个月；只含证明列出的月份，不代表账户余额。")
-                for month in documentedMonths {
-                    lines.append("  - \(CareerRules.monthLabel(month.month))：缴费单位 \(text(month.payerName))；养老基数 \(money(CareerRules.pensionBase(paymentRecords, for: job, on: month.month) ?? month.pensionBaseCents))、个人实缴 \(money(month.pensionPersonalCents))；失业基数 \(money(month.unemploymentBaseCents))、个人实缴 \(money(month.unemploymentPersonalCents))；工伤基数 \(money(month.injuryBaseCents))\(month.remark.isEmpty ? "" : "；备注 \(text(month.remark))")")
                 }
             }
             if job.isCurrent(on: now) {
@@ -49,7 +47,7 @@ enum FinancialMarkdown {
                     for plan in SeverancePlan.selectable {
                         var settings = settings
                         settings.plan = plan
-                        let estimate = SeveranceRules.estimate(settings: settings, job: job, salaryCents: SeveranceRules.averageSalary(stages: stages, job: job, on: now), noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: now), on: now)
+                        let estimate = SeveranceRules.estimate(settings: settings, job: job, salaryCents: SeveranceRules.averageSalary(stages: stages, bonuses: bonuses, job: job, on: now), noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: now), on: now)
                         lines.append("  - \(plan.title)：\(money(estimate?.amountCents))")
                     }
                 } else { lines.append("  - 设置损坏，无法估算。") }

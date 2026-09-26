@@ -7,6 +7,7 @@ struct WealthView: View {
     @Query private var holdings: [StockHolding]
     @Query private var jobs: [Employment]
     @Query private var stages: [SalaryStage]
+    @Query private var bonuses: [BonusPayment]
     @Query private var liabilities: [LiabilityAccount]
     @Environment(AppNavigation.self) private var navigation
     @Environment(CareerClock.self) private var clock
@@ -21,7 +22,7 @@ struct WealthView: View {
         guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
         return date
     }
-    private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, now: compensationDate, employmentDate: clock.now) }
+    private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, bonuses: bonuses, now: compensationDate, employmentDate: clock.now) }
     private var compensation: Int64? { scenario.estimate?.amountCents }
     private var total: Int64? { StockRules.wealth(holdings, profile: profile, on: clock.now) }
     private var needsReview: Bool { StockRules.needsLegacyReview(holdings, profile: profile) && !holdings.isEmpty }

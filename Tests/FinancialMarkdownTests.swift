@@ -27,6 +27,20 @@ import Foundation
         precondition(!report.contains("\n# 伪标题"))
         precondition(report.components(separatedBy: "### 公司").count == 2)
         precondition(render([]).contains("已记录净值：未记录或无法计算"))
+        let job = Employment()
+        job.name = "奖金测试企业"
+        job.start = ProfileRules.date(2025, 1, 1)
+        let salary = SalaryStage()
+        salary.employmentID = job.id
+        salary.effectiveDate = job.start
+        salary.salaryCents = 2_000_000
+        let bonus = BonusPayment()
+        bonus.employmentID = job.id
+        bonus.year = 2026
+        bonus.month = 3
+        bonus.amountCents = 5_000_000
+        let incomeReport = FinancialMarkdown.make(profiles: [profile], jobs: [job], stages: [salary], bonuses: [bonus], holdings: [], liabilities: [], expenses: [], now: now)
+        precondition(incomeReport.contains("年终奖实发 2026 年 3 月：¥50,000.00"))
         liability.snapshotData = Data([0])
         precondition(render([liability]).contains("已记录负债合计：未记录或无法计算"))
         holding.priceIsConfigured = false
