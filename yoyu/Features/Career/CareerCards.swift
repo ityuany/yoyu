@@ -92,21 +92,18 @@ struct EmploymentTimelineRow: View {
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 0) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(job.displayName)
-                                .font(.headline)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .layoutPriority(1)
-                            Text(tenureLabel)
+                        Text(job.displayName)
+                            .font(.headline)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                        Divider()
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("在职")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                        Divider()
-                            .padding(.vertical, 9)
-                        VStack(alignment: .leading, spacing: 6) {
+                            Text(tenureLabel)
+                                .font(.subheadline.weight(.semibold))
                             Text("月薪变化")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -118,24 +115,21 @@ struct EmploymentTimelineRow: View {
                                 .accessibilityLabel("入职月薪\(salaryLabel(entrySalary))，最终月薪\(salaryLabel(latestSalary))")
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 18)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 13)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, 20)
                     .background(colorScheme == .light ? Color(uiColor: .systemBackground) : Color(uiColor: .secondarySystemGroupedBackground),
-                                in: RoundedRectangle(cornerRadius: 16))
+                                in: bookShape)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(Color.primary.opacity(colorScheme == .light ? 0.11 : 0.06), lineWidth: 1)
+                        bookShape.strokeBorder(Color.primary.opacity(colorScheme == .light ? 0.11 : 0.08), lineWidth: 1)
                     }
-                    .shadow(color: .black.opacity(colorScheme == .light ? 0.06 : 0), radius: 8, y: 3)
-                    .contentShape(RoundedRectangle(cornerRadius: 16))
+                    .contentShape(bookShape)
                 }
                 .buttonStyle(EmploymentCardPressStyle(isOpeningDetail: isOpeningDetail))
-                .accessibilityElement(children: .combine)
-                .accessibilityHint("查看任职详情")
+                .shadow(color: .black.opacity(colorScheme == .light ? 0.06 : 0), radius: 8, y: 3)
                 .accessibilityIdentifier("employment.timeline.\(job.id)")
+                .accessibilityHint("打开\(job.displayName)的任职档案")
                 .padding(.top, 13)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,19 +140,24 @@ struct EmploymentTimelineRow: View {
         .foregroundStyle(.primary)
     }
 
+    private var bookShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 10,
+                               bottomTrailingRadius: 32, topTrailingRadius: 32)
+    }
+
     private var tenureLabel: String {
         let calendar = ProfileRules.calendar
         guard let start = job.start,
               let days = CareerRules.tenureDays(for: job, on: now),
               let end = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: start)) else {
-            return "在职时长待补全"
+            return "时长待补全"
         }
         let parts = calendar.dateComponents([.year, .month], from: calendar.startOfDay(for: start), to: end)
         let years = parts.year ?? 0
         let months = parts.month ?? 0
-        if years > 0 { return "在职 \(years) 年" + (months > 0 ? " \(months) 个月" : "") }
-        if months > 0 { return "在职 \(months) 个月" }
-        return "在职 \(days) 天"
+        if years > 0 { return "\(years) 年" + (months > 0 ? " \(months) 个月" : "") }
+        if months > 0 { return "\(months) 个月" }
+        return "\(days) 天"
     }
 
     private func salaryLabel(_ value: Int64?) -> String {
