@@ -120,9 +120,6 @@ struct EmploymentTimelineRow: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 20)
                     .background(bookColor, in: bookShape)
-                    .overlay {
-                        bookShape.strokeBorder(Color.primary.opacity(colorScheme == .light ? 0.11 : 0.08), lineWidth: 1)
-                    }
                     .contentShape(bookShape)
                 }
                 .buttonStyle(EmploymentCardPressStyle(isOpeningDetail: isOpeningDetail))
