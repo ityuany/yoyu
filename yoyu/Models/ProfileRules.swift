@@ -47,17 +47,25 @@ enum ProfileRules {
 
     /// 中国大陆普通职工渐进式延迟退休规则（2025 年起）；不计算特殊工种等提前退休情形。
     /// https://www.npc.gov.cn/npc/c2/c30834/202409/t20240914_439634.html
-    static func statutoryRetirement(year: Int?, month: Int?, gender: String, femaleAge: Int?) -> String {
-        guard let year, let month, (1900...9999).contains(year), (1...12).contains(month) else { return "待完善" }
+    static func retirementDate(year: Int?, month: Int?, gender: String, femaleAge: Int?) -> Date? {
+        guard let year, let month, (1900...9999).contains(year), (1...12).contains(month) else { return nil }
         let age: Int
         if gender == "男" { age = 60 }
         else if gender == "女", let femaleAge, [50, 55].contains(femaleAge) { age = femaleAge }
-        else { return gender == "女" ? "请选择退休类别" : "待完善" }
+        else { return nil }
         let original = (year + age) * 12 + month - 1
         let elapsed = original - 2025 * 12
         let delay = elapsed < 0 ? 0 : min(age == 50 ? 60 : 36, elapsed / (age == 50 ? 2 : 4) + 1)
         let total = original + delay
-        return "\(total / 12) 年 \(total % 12 + 1) 月"
+        return calendar.date(from: DateComponents(year: total / 12, month: total % 12 + 1, day: 1))
+    }
+
+    static func statutoryRetirement(year: Int?, month: Int?, gender: String, femaleAge: Int?) -> String {
+        guard let retirement = retirementDate(year: year, month: month, gender: gender, femaleAge: femaleAge) else {
+            return gender == "女" && year != nil && month != nil ? "请选择退休类别" : "待完善"
+        }
+        let parts = calendar.dateComponents([.year, .month], from: retirement)
+        return "\(parts.year!) 年 \(parts.month!) 月"
     }
 
     static func date(_ year: Int, _ month: Int, _ day: Int) -> Date {

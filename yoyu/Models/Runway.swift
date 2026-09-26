@@ -209,13 +209,17 @@ nonisolated struct RunwayInvestment: Sendable {
         return calendar.date(byAdding: .day, value: min(day, count) - 1, to: month)
     }
 
-    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int = 100) async -> RunwayResult {
+    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int? = nil) async -> RunwayResult {
         let today = day(today)
         let origin = plan.mode == .employed ? today : day(plan.lossDate ?? today)
-        let limit = calendar.date(byAdding: .year, value: years, to: max(today, origin))!
         var result = RunwayResult(origin: origin, end: today)
         func invalid(_ message: String) -> RunwayResult { var r = result; r.issue = message; return r }
         if let error = validation(plan, today: today) { return invalid(error) }
+        guard let retirement = profile.flatMap({ ProfileRules.retirementDate(year: $0.birthYear, month: $0.birthMonth, gender: $0.gender, femaleAge: $0.femaleRetirementAge) }) else {
+            return invalid("请先在基本信息中完善出生年月、性别和退休类别，以计算退休时间。")
+        }
+        guard retirement > origin else { return invalid("退休时间已到或早于预测起点，无法计算生存时长。") }
+        let limit = years.map { min(retirement, calendar.date(byAdding: .year, value: $0, to: max(today, origin))!) } ?? retirement
         guard let profile, let initialCash = profile.cashCents, initialCash >= 0 else { return invalid("请在财富中登记现金余额，没有现金可填写 0。") }
         guard let stock = StockRules.portfolio(stocks, profile: profile, on: today) ?? (stocks.isEmpty && profile.stockCents == nil && profile.stockSharesHundredths == nil && profile.stockPriceCents == nil ? 0 : nil) else { return invalid("请完善财富中的股票数量与估值。") }
         if profile.investmentCents != nil && profile.investmentCents != 0 && (profile.investmentRegistrationDate == nil || profile.investmentAnnualReturnBasisPoints == nil) { return invalid("请补全理财登记日期与收益率。") }
@@ -248,7 +252,6 @@ nonisolated struct RunwayInvestment: Sendable {
         let jobEnd = job?.end ?? .distantFuture
         let originalPayday = job?.salaryPaymentDay ?? 10
         let returnDay = plan.returnDate.map(day)
-        let proofStart = calendar.date(byAdding: .year, value: 1, to: origin)!
         var paymentMonths: [Date: [Date: Int64]] = [:]
         var invalidPaymentMonths = Set<Date>()
         let firstMonth = ExpenseRules.month(today)
@@ -264,8 +267,8 @@ nonisolated struct RunwayInvestment: Sendable {
         return await simulate(plan: plan, today: today, origin: origin, limit: limit, initialResult: result,
             initialCash: initialCash, stock: stock, initialInvestment: investment, plans: plans, breaks: breaks,
             salaryRows: salaryRows, lastSalaryChange: lastSalaryChange, jobEnd: jobEnd,
-            originalPayday: originalPayday, returnDay: returnDay, proofStart: proofStart,
-            paymentMonths: paymentMonths, invalidPaymentMonths: invalidPaymentMonths, noAccounts: accounts.isEmpty)
+            originalPayday: originalPayday, returnDay: returnDay,
+            paymentMonths: paymentMonths, invalidPaymentMonths: invalidPaymentMonths)
     }
 
     // Only Sendable value snapshots cross this boundary; SwiftData stays on MainActor.
@@ -273,8 +276,8 @@ nonisolated struct RunwayInvestment: Sendable {
         plan: RunwayPlan, today: Date, origin: Date, limit: Date, initialResult: RunwayResult,
         initialCash: Int64, stock: Int64, initialInvestment: RunwayInvestment?, plans: [ExpensePlan], breaks: [ExpenseWorkBreak],
         salaryRows: [(date: Date, salary: Int64?)], lastSalaryChange: Date, jobEnd: Date,
-        originalPayday: Int, returnDay: Date?, proofStart: Date,
-        paymentMonths: [Date: [Date: Int64]], invalidPaymentMonths: Set<Date>, noAccounts: Bool
+        originalPayday: Int, returnDay: Date?,
+        paymentMonths: [Date: [Date: Int64]], invalidPaymentMonths: Set<Date>
     ) async -> RunwayResult {
         var result = initialResult
         var investment = initialInvestment
@@ -292,9 +295,6 @@ nonisolated struct RunwayInvestment: Sendable {
         func point(_ date: Date) -> RunwayPoint {
             RunwayPoint(date: date, cash: cents(cash), stock: cents(equity), investment: cents(investment?.value ?? 0), income: income, gain: cents(gain), expense: cost, repayment: debt, redeemed: cents(redeemed))
         }
-        // A conservative certificate: two years of cash buffer + guaranteed annual
-        // salary/flexible income cover an upper bound of every expense, with no debts.
-        let annualUpper = plans.reduce(Decimal.zero) { $0 + Decimal($1.amount) * Decimal(12 / $1.frequency.rawValue) }
         while date < limit {
             if Task.isCancelled { return invalid("计算已取消") }
             let currentMonth = calendar.dateInterval(of: .month, for: date)!.start
@@ -343,15 +343,6 @@ nonisolated struct RunwayInvestment: Sendable {
             cash -= needed
             result.end = date
             if cash + equity + (investment?.value ?? 0) > Decimal(ProfileRules.maximumMoneyCents) { return invalid("预测资产超过支持的金额范围，请调整资料。") }
-            let stable = plan.mode != .temporary || returned
-            let noFutureSalary = !working || returned || lastSalaryChange <= date
-            let guaranteed = working ? (returned ? plan.salary : salary(on: date)) : plan.flexible
-            if date >= origin && date >= proofStart && stable && noFutureSalary && noAccounts,
-               let guaranteed, Decimal(guaranteed) * 12 + max(0, (investment?.capital ?? 0) * (investment?.rate ?? 0)) >= annualUpper, cash >= annualUpper * 2 {
-                result.sustainable = true
-                result.points.append(point(date))
-                return result
-            }
             date = calendar.date(byAdding: .day, value: 1, to: date)!
         }
         result.end = limit

@@ -5,6 +5,10 @@ enum ProfileRoute: Hashable {
     case detail(ProfileSection)
     case holidays
     case sync
+    case socialInsuranceLimits
+    case housingFundLimits
+    case pensionShortfall
+    case housingShortfall
 }
 
 struct ProfileView: View {
@@ -52,6 +56,10 @@ struct ProfileView: View {
                     } else { ProfileDetailView(section: section) }
                 case .holidays: HolidayScheduleView()
                 case .sync: SyncStatusView()
+                case .socialInsuranceLimits: SocialInsuranceLimitsView()
+                case .housingFundLimits: HousingFundLimitsView()
+                case .pensionShortfall: PensionShortfallView()
+                case .housingShortfall: HousingShortfallView()
                 }
             }
             .navigationDestination(for: CareerDestination.self) { CareerView(destination: $0) }

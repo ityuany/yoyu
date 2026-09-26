@@ -16,6 +16,10 @@
 
 所有图表右上角统一提供放大入口，点击后以全屏层横向查看；保留当前时间范围和筛选，关闭后回到原页面并保留状态。具体要求参见 [图表查看约定](.agent/references/charts.md)。
 
+## 年月与年份选择
+
+只选择年月或年份的表单字段，统一采用单行入口和底部弹出的紧凑选择页；高度及取消、确认行为参见 [日期选择约定](.agent/references/date-selection.md)。
+
 ## 界面验收范围
 
 界面验收仅使用系统默认字号，覆盖 **浅色模式（Light Mode）** 和 **深色模式（Dark Mode）**；不验收放大字号，包括 **Dynamic Type 放大字号** 和 **更大辅助功能字体（Larger Accessibility Text Sizes）**。

@@ -80,7 +80,7 @@ struct CareerReviewView: View {
             }
             Text("年均增长按首笔至最近记录末日的已录入月薪复合年化，包含空档期；不足一年或首末资料不足时不计算。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("任职天数包含入离职当天，空档期不计入，重叠日期仅计一次。")
+            Text("任职按入职月初至离职月末估算；当前任职统计至今天，空档期不计入。")
                 .font(.caption).foregroundStyle(.secondary)
         }.dashboardCard()
     }
@@ -115,7 +115,7 @@ struct CareerReviewView: View {
                 Text("近 5 年").tag(true)
             }.pickerStyle(.segmented)
             if visiblePay.isEmpty {
-                ContentUnavailableView("暂无可绘制的薪资", systemImage: "chart.xyaxis.line", description: Text("补充薪资金额与生效日期后，在这里回顾变化。"))
+                ContentUnavailableView("暂无可绘制的薪资", systemImage: "chart.xyaxis.line", description: Text("补充薪资金额与生效月份后，在这里回顾变化。"))
             } else {
                 salaryReadout
                 salaryPlot.frame(height: 200)
@@ -303,7 +303,7 @@ struct CareerReviewView: View {
                     Spacer()
                     Text(ProfileRules.money(pay.cents)).font(.subheadline.weight(.semibold))
                 }
-                Text("\(CareerRules.dateLabel(pay.start))起" + changeLabel(pay))
+                Text("\(CareerRules.monthLabel(pay.start))起" + changeLabel(pay))
                     .font(.caption).foregroundStyle(.secondary)
             }.foregroundStyle(.primary)
         }.buttonStyle(.plain)
@@ -328,7 +328,7 @@ struct CareerReviewView: View {
                 Text("按时长").tag(true)
             }.pickerStyle(.segmented)
             if tenures.isEmpty {
-                Text("补充入职日期后查看任职时间轴。").font(.subheadline).foregroundStyle(.secondary)
+                Text("补充入职月份后查看任职时间轴。").font(.subheadline).foregroundStyle(.secondary)
             } else {
                 if !byDuration {
                     HStack {
@@ -354,7 +354,7 @@ struct CareerReviewView: View {
                                     .frame(width: min(geometry.size.width * (1 - offset), max(3, geometry.size.width * fraction)))
                                     .offset(x: geometry.size.width * offset)
                             }.frame(height: 8).accessibilityHidden(true)
-                            Text("\(CareerRules.dateLabel(tenure.start))—\(CareerRules.dateLabel(tenure.end.addingTimeInterval(-1)))")
+                            Text("\(CareerRules.employmentMonthLabel(tenure.start))—\(CareerRules.employmentMonthLabel(tenure.end.addingTimeInterval(-1)))")
                                 .font(.caption).foregroundStyle(.secondary)
                         }.foregroundStyle(.primary).padding(.vertical, 4)
                     }.buttonStyle(.plain)

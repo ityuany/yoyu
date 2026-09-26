@@ -22,6 +22,15 @@ import SwiftData
             } else if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
                 FinancialExportTestHost()
 
+            } else if ProcessInfo.processInfo.arguments.contains("--social-limits-ui-test") {
+                SocialInsuranceLimitsTestHost()
+
+            } else if ProcessInfo.processInfo.arguments.contains("--pension-shortfall-ui-test") {
+                PensionShortfallTestHost()
+
+            } else if ProcessInfo.processInfo.arguments.contains("--housing-shortfall-ui-test") {
+                HousingShortfallTestHost()
+
             } else if ProcessInfo.processInfo.arguments.contains("--mortgage-ui-test") {
                 NavigationStack { LiabilityExampleView() }
                     .environment(CareerClock())

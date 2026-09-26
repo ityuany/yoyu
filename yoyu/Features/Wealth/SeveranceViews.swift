@@ -58,7 +58,7 @@ struct SeveranceDetailView: View {
                     let baseEstimate = scenario.estimate(for: .n, on: compensationDate)
                     AdaptiveValueRow(title: "当前企业", value: job.displayName)
                     AdaptiveValueRow(title: "测算日期", value: CareerRules.dateLabel(compensationDate))
-                    AdaptiveValueRow(title: "工龄折算", value: SeveranceRules.tenureHundredths(start: job.start, on: compensationDate).map { ProfileRules.input($0) + " 年" } ?? "待补全入职日期")
+                    AdaptiveValueRow(title: "工龄折算", value: SeveranceRules.tenureHundredths(start: job.start, on: compensationDate).map { ProfileRules.input($0) + " 年" } ?? "待补全入职月份")
                     AdaptiveValueRow(title: "平均月薪", value: ProfileRules.money(scenario.salaryCents))
                     AdaptiveValueRow(title: "上月工资", value: ProfileRules.money(scenario.noticeSalaryCents))
                     AdaptiveValueRow(title: "3倍社平", value: scenario.settings?.tripleAverageSalaryCents.map { ProfileRules.money($0) } ?? "待设置，暂未应用封顶")
@@ -71,7 +71,7 @@ struct SeveranceDetailView: View {
                 }
                 Section {
                     if scenario.salaryCents == nil || scenario.noticeSalaryCents == nil || job.start == nil {
-                        Text("测算资料不足，请补充当前企业的入职日期及覆盖计算期间的薪资记录。")
+                        Text("测算资料不足，请补充当前企业的入职月份及覆盖计算期间的薪资记录。")
                             .foregroundStyle(.secondary)
                     }
                     NavigationLink("查看职业履历") { CareerView(destination: .history) }
@@ -120,7 +120,7 @@ struct SeveranceTestHost: View {
     private let clock = CareerClock()
 
     init() {
-        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self,
+        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self,
                              StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
         container = try! ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)])
         clock.now = ProfileRules.calendar.date(from: DateComponents(year: 2026, month: 9, day: 22))!

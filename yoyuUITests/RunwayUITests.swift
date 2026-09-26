@@ -1,70 +1,97 @@
 import XCTest
 
 @MainActor final class RunwayUITests: XCTestCase {
-    func testEdgeReturnAndPress() {
+    func testCardPushAndBack() {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--runway-demo"]
         app.launch()
         let card = app.buttons["runway.card"]
         XCTAssertTrue(card.waitForExistence(timeout: 40))
-        XCTAssertTrue(app.staticTexts["runway.result"].waitForExistence(timeout: 40))
-        XCTAssertFalse(card.images["arrow.up.left.and.arrow.down.right"].exists)
         let original = app.staticTexts["runway.result"].label
-        shot(app, "无图标整卡入口")
-        // Hold long enough for the recording to show the finger-down pose.
-        card.press(forDuration: 0.65)
-        waitForOpen(app)
-        shot(app, "按压回弹展开")
-        let left = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.45))
-        let short = app.coordinate(withNormalizedOffset: CGVector(dx: 0.13, dy: 0.45))
-        left.press(forDuration: 0.05, thenDragTo: short, withVelocity: .slow, thenHoldForDuration: 0.3)
-        waitForOpen(app)
+        card.tap()
+        XCTAssertTrue(app.staticTexts["runway.detailResult"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["runway.detailResult"].label, original)
-        shot(app, "短滑取消后恢复全屏")
-        // A horizontal gesture away from the edge must not dismiss the detail.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.25))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.25)))
-        waitForOpen(app)
-        app.swipeUp()
-        shot(app, "滚动后边缘返回前")
-        left.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.83, dy: 0.45)), withVelocity: .slow, thenHoldForDuration: 0.15)
-        waitForClosed(app)
+        app.navigationBars["生存时长"].buttons.firstMatch.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["runway.result"].label, original)
-        shot(app, "边缘返回原卡片")
-        openCard(app)
-        app.buttons["runway.closeDetail"].tap()
-        waitForClosed(app)
     }
-    func testCardExpansionMotion() {
+    func testOpeningAssetsBeforeCharts() {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--runway-demo"]
         app.launch()
         XCTAssertTrue(app.staticTexts["runway.result"].waitForExistence(timeout: 40))
+        app.buttons["runway.card"].tap()
+        let assetsTitle = app.staticTexts["失业起始资产"]
+        let range = app.segmentedControls["runway.chartRange"]
+        XCTAssertTrue(assetsTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(range.waitForExistence(timeout: 5))
+        XCTAssertLessThan(assetsTitle.frame.maxY, range.frame.minY)
+        XCTAssertTrue(app.staticTexts["runway.openingTotal"].exists)
+        shot(app, "起点资产位于图表之前")
+    }
+    func testScenarioActionInTopBar() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--runway-demo"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["runway.result"].waitForExistence(timeout: 40))
+        XCTAssertFalse(app.buttons["runway.edit"].exists)
+        app.buttons["runway.card"].tap()
+        let edit = app.navigationBars["生存时长"].buttons["runway.edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "runway.edit").count, 1)
+        shot(app, "右上角调整情景")
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["调整情景"].waitForExistence(timeout: 5))
+    }
+    func testInvestmentIncomeChartHasIndependentFullscreen() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--runway-demo"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["runway.result"].waitForExistence(timeout: 40))
+        app.buttons["runway.card"].tap()
+        XCTAssertTrue(app.staticTexts["runway.detailResult"].waitForExistence(timeout: 5))
+        shot(app, "无重复卡片的预测详情")
+        let expand = app.buttons["runway.expandInvestmentIncome"]
+        for _ in 0..<4 where !expand.isHittable { app.swipeUp() }
+        XCTAssertTrue(expand.isHittable)
+        XCTAssertTrue(app.staticTexts["理财收益如何变化"].exists)
+        XCTAssertEqual(app.segmentedControls.count, 1)
+        let range = app.segmentedControls["runway.chartRange"]
+        XCTAssertTrue(range.waitForExistence(timeout: 5))
+        for _ in 0..<3 where !range.isHittable { app.swipeDown() }
+        XCTAssertTrue(range.isHittable)
+        range.buttons["未来 1 年"].tap()
+        for _ in 0..<3 where !expand.isHittable { app.swipeUp() }
+        expand.tap()
+        XCTAssertTrue(app.buttons["runway.closeInvestmentIncomeChart"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.segmentedControls.buttons["1 年"].isSelected)
+        shot(app, "横向理财收益趋势")
+        app.buttons["runway.closeInvestmentIncomeChart"].tap()
+        XCTAssertTrue(expand.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.segmentedControls["runway.chartRange"].buttons["未来 1 年"].isSelected)
+        let assetExpand = app.buttons["runway.expand"]
+        for _ in 0..<4 where !assetExpand.isHittable { app.swipeDown() }
+        XCTAssertTrue(assetExpand.isHittable)
+        assetExpand.tap()
+        XCTAssertTrue(app.buttons["runway.closeChart"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.segmentedControls.buttons["1 年"].isSelected)
+    }
+    func testRequiresRetirementInformation() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--runway-demo", "--runway-missing-retirement"]
+        app.launch()
         let card = app.buttons["runway.card"]
-        let originalFrame = card.frame
-        let originalResult = app.staticTexts["runway.result"].label
-        shot(app, "卡片展开前")
-        openCard(app)
-        let close = app.buttons["runway.closeDetail"]
-        XCTAssertTrue(close.waitForExistence(timeout: 5))
-        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: close)], timeout: 5) == .completed)
-        shot(app, "卡片展开后")
-        close.tap()
-        waitForClosed(app)
-        XCTAssertEqual(card.frame.minY, originalFrame.minY, accuracy: 1)
-        XCTAssertEqual(card.frame.height, originalFrame.height, accuracy: 1)
-        XCTAssertEqual(app.staticTexts["runway.result"].label, originalResult)
-        openCard(app)
-        XCTAssertTrue(close.waitForExistence(timeout: 5))
-        app.swipeUp()
-        shot(app, "滚动后关闭前")
-        close.tap()
-        waitForClosed(app)
-        XCTAssertEqual(card.frame.minY, originalFrame.minY, accuracy: 1)
-        XCTAssertEqual(app.staticTexts["runway.result"].label, originalResult)
-        shot(app, "收回原卡片")
+        XCTAssertTrue(card.waitForExistence(timeout: 40))
+        XCTAssertTrue(app.staticTexts["请先在基本信息中完善出生年月、性别和退休类别，以计算退休时间。"].waitForExistence(timeout: 40))
+        card.tap()
+        XCTAssertTrue(app.buttons["runway.editRetirement"].waitForExistence(timeout: 5))
+        app.buttons["runway.editRetirement"].tap()
+        XCTAssertTrue(app.navigationBars["基本信息"].waitForExistence(timeout: 5))
     }
     func testScenarioAndChart() {
         continueAfterFailure = false
@@ -80,9 +107,9 @@ import XCTest
         shot(app, "生存时长首屏")
         XCTAssertFalse(app.buttons["runway.edit"].exists)
         openCard(app)
-        XCTAssertTrue(app.buttons["runway.closeDetail"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["生存时长"].buttons.firstMatch.waitForExistence(timeout: 5))
         shot(app, "展开预测详情")
-        app.buttons["runway.closeDetail"].tap()
+        app.navigationBars["生存时长"].buttons.firstMatch.tap()
         waitForClosed(app)
         openCard(app)
         result = app.staticTexts["runway.detailResult"]
@@ -115,7 +142,7 @@ import XCTest
         app.buttons["持续在职"].tap()
         app.buttons["runway.save"].tap()
         XCTAssertTrue(result.waitForExistence(timeout: 40))
-        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "可持续生存"), object: result)], timeout: 40) == .completed)
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND label != %@", savedResult), object: result)], timeout: 40) == .completed)
         app.buttons["runway.edit"].tap()
         app.buttons["runway.mode"].tap()
         app.buttons["不再就业"].tap()
@@ -147,9 +174,6 @@ import XCTest
         app.launch()
         XCTAssertTrue(app.staticTexts["runway.result"].waitForExistence(timeout: 40))
         openCard(app)
-        let close = app.buttons["runway.closeDetail"]
-        XCTAssertTrue(close.waitForExistence(timeout: 5))
-        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in close.isEnabled }, object: close)], timeout: 5) == .completed, "关闭按钮应在展开完成后启用")
         app.buttons["runway.edit"].tap()
         XCTAssertTrue(app.buttons["runway.mode"].waitForExistence(timeout: 5))
         app.buttons["runway.mode"].tap()
@@ -171,9 +195,7 @@ import XCTest
         waitForOpen(app)
     }
     private func waitForOpen(_ app: XCUIApplication) {
-        let close = app.buttons["runway.closeDetail"]
-        XCTAssertTrue(close.waitForExistence(timeout: 5))
-        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in close.isEnabled }, object: close)], timeout: 5) == .completed, "关闭按钮应在展开完成后启用")
+        XCTAssertTrue(app.navigationBars["生存时长"].buttons.firstMatch.waitForExistence(timeout: 5))
     }
     private func waitForClosed(_ app: XCUIApplication) {
         let card = app.buttons["runway.card"]

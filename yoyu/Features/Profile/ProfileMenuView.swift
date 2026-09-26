@@ -27,6 +27,14 @@ struct ProfileMenuView: View {
                 NavigationLink(value: CareerDestination.history) {
                     Label("企业履历", systemImage: "building.2")
                 }
+                NavigationLink(value: CareerDestination.pension) {
+                    Label("养老保险", systemImage: "cross.case")
+                }
+                .accessibilityIdentifier("profile.pension")
+                NavigationLink(value: CareerDestination.housing) {
+                    Label("住房公积金", systemImage: "house")
+                }
+                .accessibilityIdentifier("profile.housing")
                 NavigationLink(value: ProfileRoute.holidays) {
                     Label("调休安排", systemImage: "calendar.badge.clock")
                 }

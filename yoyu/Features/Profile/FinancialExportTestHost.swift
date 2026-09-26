@@ -4,7 +4,7 @@ import SwiftData
 
 struct FinancialExportTestHost: View {
     private let container: ModelContainer = {
-        let schema = Schema([UserProfile.self, Employment.self, SalaryStage.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self])
+        let schema = Schema([UserProfile.self, Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self])
         let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         let profile = UserProfile()
         profile.cashCents = 100000_00

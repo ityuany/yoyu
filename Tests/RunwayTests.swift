@@ -7,6 +7,9 @@ import SwiftData
         func date(_ y: Int, _ m: Int, _ d: Int) -> Date { c.startOfDay(for: ProfileRules.date(y, m, d)) }
         let today = date(2026, 1, 1)
         let p = UserProfile()
+        p.birthYear = 1990
+        p.birthMonth = 1
+        p.gender = "男"
         p.cashCents = 100_00
         p.stockCents = 100_00
         p.investmentCents = 100_00
@@ -29,6 +32,11 @@ import SwiftData
         let record = RecurringExpense()
         record.planData = try JSONEncoder().encode(expense)
         let employed = RunwayPlan()
+        let unconfigured = UserProfile()
+        let blocked = await RunwayEngine.calculate(plan: employed, profile: unconfigured, stocks: [], jobs: [job], stages: [stage], expenses: [record], liabilities: [], today: today)
+        precondition(blocked.issue?.contains("退休") == true)
+        let retirement = ProfileRules.retirementDate(year: p.birthYear, month: p.birthMonth, gender: p.gender, femaleAge: p.femaleRetirementAge)!
+        precondition(retirement == date(2053, 1, 1))
         let result = await RunwayEngine.calculate(plan: employed, profile: p, stocks: [], jobs: [job], stages: [stage], expenses: [record], liabilities: [], today: today, years: 2)
         precondition(result.issue == nil, result.issue ?? "")
         precondition(result.failure == date(2026, 2, 1))
@@ -88,7 +96,7 @@ import SwiftData
         precondition(capped.failure == nil && !capped.sustainable && capped.duration == "12 个月零 0 天")
         stage.salaryCents = 200_00
         let stable = await RunwayEngine.calculate(plan: employed, profile: p, stocks: [], jobs: [job], stages: [stage], expenses: [record], liabilities: [], today: today, years: 2)
-        precondition(stable.sustainable && stable.failure == nil)
+        precondition(!stable.sustainable && stable.failure == nil && stable.end == date(2028, 1, 1))
         // Independent persistence; data survives reopening.
 
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

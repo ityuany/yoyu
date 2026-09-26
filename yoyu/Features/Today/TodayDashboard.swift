@@ -22,10 +22,10 @@ struct TodayDashboard: View {
                     if let value {
                         focusedDashboard(value, job: job, height: geometry.size.height)
                     } else {
-                        setup(title: "再补充一点，就能看见今日收入", message: "完善入职日期、月薪和上下班时间，悠悠就能帮你估算每天的积累。", destination: .employment(job.id))
+                        setup(title: "再补充一点，就能看见今日收入", message: "完善入职月份、月薪和上下班时间，悠悠就能帮你估算每天的积累。", destination: .employment(job.id))
                     }
                 } else {
-                    setup(title: "让每一份努力，都看得见", message: "添加当前企业，填写薪资与工作安排，看看每一天的努力如何慢慢积累。若有多段在职经历，请先完善离职日期。", destination: .history)
+                    setup(title: "让每一份努力，都看得见", message: "添加当前企业，填写薪资与工作安排，看看每一天的努力如何慢慢积累。若有多段在职经历，请先完善离职月份。", destination: .history)
                 }
             }
             .contentMargins(.horizontal, 24, for: .scrollContent)

@@ -49,7 +49,7 @@ enum TodayIncome {
               let shift = shift(on: day, job: job),
               let month = calendar.dateInterval(of: .month, for: day) else { return nil }
         let ordered = CareerRules.stages(stages, for: job)
-        // 无生效日期或同日阶段冲突时，引导补全，避免把未知薪资套用到所有日期。
+        // 无生效月份或同月阶段冲突时，引导补全，避免把未知薪资套用到所有日期。
         guard !ordered.contains(where: { $0.effectiveDate == nil }) else { return nil }
         let dates = ordered.map { calendar.startOfDay(for: $0.effectiveDate!) }
         guard Set(dates).count == dates.count else { return nil }

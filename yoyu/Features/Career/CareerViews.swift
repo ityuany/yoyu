@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-enum CareerDestination: Hashable { case history, review, employment(String), salary, work }
+enum CareerDestination: Hashable { case history, review, employment(String), salary, work, pension, housing, pensionEmployment(String), housingEmployment(String) }
 
 struct CareerView: View {
     let destination: CareerDestination
@@ -12,13 +12,19 @@ struct CareerView: View {
     @State private var selectedEmployment: String?
 
     private var job: Employment? {
-        if case .employment(let id) = destination { return CareerRules.employments(jobs).first { $0.id == id } }
+        switch destination {
+        case .employment(let id), .pensionEmployment(let id), .housingEmployment(let id):
+            return CareerRules.employments(jobs).first { $0.id == id }
+        default: break
+        }
         return CareerRules.current(jobs, on: clock.now)
     }
     var body: some View {
         Group {
             if destination == .review {
                 CareerReviewView()
+            } else if destination == .pension || destination == .housing {
+                ContributionEmploymentList(jobs: jobs, now: clock.now, kind: destination == .pension ? .pension : .housing)
             } else if destination == .history {
                 List {
                     Section {
@@ -34,28 +40,20 @@ struct CareerView: View {
                         }
                     }
                     if jobs.isEmpty { ContentUnavailableView("尚未录入企业履历", systemImage: "building.2", description: Text("添加当前任职，或补录过去的企业经历。")) }
-                    let current = CareerRules.employments(jobs).filter { $0.isCurrent(on: clock.now) }
-                    let history = CareerRules.employments(jobs).filter { !$0.isCurrent(on: clock.now) }
-                    if current.isEmpty {
-                        Section("当前任职") { Text("暂无当前任职").foregroundStyle(.secondary) }
-                    }
+                    let ordered = CareerRules.employments(jobs)
+                    let current = ordered.filter { $0.isCurrent(on: clock.now) }
                     if current.count > 1 {
-                        Text("有多段任职尚未结束，请完善离职日期后确定当前企业。")
+                        Text("有多段任职尚未结束，请完善离职月份后确定当前企业。")
                             .foregroundStyle(.orange)
                     }
-                    ForEach(Array(current.enumerated()), id: \.element.id) { index, job in
-                        Section { row(job) } header: {
-                            if index == 0 { Text("当前任职") }
-                        }
-                    }
-                    ForEach(Array(history.enumerated()), id: \.element.id) { index, job in
-                        Section { row(job) } header: {
-                            if index == 0 { Text("历史任职") }
-                        }
-                    }
-                    if !jobs.isEmpty {
-                        Section {} footer: {
-                            Text("累计收入按各薪资阶段的税前月薪估算，按每月自然日折算，含入离职当天，暂不含年终奖。资料不完整时显示待补全。")
+                    if !ordered.isEmpty {
+                        Section("任职时间线") {
+                            ForEach(Array(ordered.enumerated()), id: \.element.id) { index, job in
+                                let trend = salaryTrend(at: index, in: ordered)
+                                row(job, isFirst: index == 0, isLast: index == ordered.count - 1,
+                                    trend: trend,
+                                    nextTrend: index + 1 < ordered.count ? salaryTrend(at: index + 1, in: ordered) : nil)
+                            }
                         }
                     }
                 }.neutralPageBackground()
@@ -65,7 +63,11 @@ struct CareerView: View {
                 .navigationTitle("企业履历")
                 .toolbar { ToolbarItem(placement: .primaryAction) { Button("添加", systemImage: "plus") { adding = true } } }
             } else if let job {
-                EmploymentDetail(job: job, mode: destination)
+                switch destination {
+                case .pensionEmployment: ContributionOverview(job: job, kind: .pension)
+                case .housingEmployment: ContributionOverview(job: job, kind: .housing)
+                default: EmploymentDetail(job: job, mode: destination)
+                }
             } else {
                 ContentUnavailableView {
                     Label(jobs.isEmpty ? "企业信息待完善" : "暂无可用的当前任职", systemImage: "building.2")
@@ -83,13 +85,24 @@ struct CareerView: View {
             CareerView(destination: .employment(id))
         }
     }
-    private func row(_ job: Employment) -> some View {
-        Button { selectedEmployment = job.id } label: {
-            EmploymentOverviewCard(job: job, stages: stages, now: clock.now)
-                .contentShape(Rectangle())
+    private func salaryTrend(at index: Int, in ordered: [Employment]) -> EmploymentSalaryTrend {
+        let current = ordered[index].start.flatMap {
+            CareerRules.salary(stages, for: ordered[index], on: $0)?.salaryCents
         }
-        .buttonStyle(.plain)
+        let previous = index + 1 < ordered.count
+            ? CareerRules.salary(stages, for: ordered[index + 1], on: clock.now)?.salaryCents
+            : nil
+        return EmploymentSalaryTrend(current: current, previous: previous)
+    }
+
+    private func row(_ job: Employment, isFirst: Bool, isLast: Bool,
+                     trend: EmploymentSalaryTrend, nextTrend: EmploymentSalaryTrend?) -> some View {
+        EmploymentTimelineRow(job: job, stages: stages, now: clock.now,
+                              isFirst: isFirst, isLast: isLast, trend: trend, nextTrend: nextTrend,
+                              onSelect: { selectedEmployment = job.id })
         .listRowInsets(EdgeInsets())
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
 }
@@ -102,7 +115,7 @@ struct CurrentEmploymentSection: View {
         Section("当前企业") {
             if let job = CareerRules.current(jobs, on: clock.now) {
                 LabeledContent("企业名称", value: job.displayName)
-                LabeledContent("入职日期", value: CareerRules.dateLabel(job.start))
+                LabeledContent("入职月份", value: CareerRules.employmentMonthLabel(job.start))
                 LabeledContent("当前税前月薪", value: ProfileRules.money(CareerRules.salary(stages, for: job, on: clock.now)?.salaryCents))
                 NavigationLink("查看任职详情", value: CareerDestination.employment(job.id))
             } else {
@@ -121,6 +134,7 @@ private struct EmploymentDetail: View {
     @Environment(CareerClock.self) private var clock
     @Query private var stages: [SalaryStage]
     @Query private var holdings: [StockHolding]
+    @Query private var contributions: [ContributionStage]
     @State private var editingJob = false
     @State private var addingSalary = false
     @State private var editingStage: SalaryStage?
@@ -136,8 +150,8 @@ private struct EmploymentDetail: View {
                     LabeledContent("企业名称", value: job.displayName)
                     LabeledContent("每月发薪日", value: "每月 \(job.salaryPaymentDay) 号")
                         .accessibilityIdentifier("employment.payday.summary")
-                    LabeledContent("入职日期", value: CareerRules.dateLabel(job.start))
-                    LabeledContent("离职日期", value: job.end.map { CareerRules.dateLabel($0) } ?? "目前在职")
+                    LabeledContent("入职月份", value: CareerRules.employmentMonthLabel(job.start))
+                    LabeledContent("离职月份", value: job.end.map { CareerRules.employmentMonthLabel($0) } ?? "目前在职")
                 }
                 if mode == .employment(job.id) {
                     CompanyStockSummary(job: job)
@@ -146,6 +160,10 @@ private struct EmploymentDetail: View {
                     if let salary {
                         SalaryDetails(stage: salary)
                     } else { Text("薪资待遇待完善").foregroundStyle(.secondary) }
+                }
+                Section("社保与公积金") {
+                    NavigationLink("养老保险", value: CareerDestination.pensionEmployment(job.id))
+                    NavigationLink("住房公积金", value: CareerDestination.housingEmployment(job.id))
                 }
                 let orderedStages = CareerRules.stages(stages, for: job)
                 ForEach(Array(orderedStages.enumerated()), id: \.element.id) { index, stage in
@@ -158,10 +176,6 @@ private struct EmploymentDetail: View {
                         .listRowInsets(EdgeInsets())
                     } header: {
                         if index == 0 { Text("薪资阶段") }
-                    } footer: {
-                        if index == orderedStages.count - 1 {
-                            Text("养老、公积金个人月缴纳金额按各阶段税前月薪与比例估算。")
-                        }
                     }
                 }
                 Section {
@@ -216,6 +230,8 @@ private struct EmploymentDetail: View {
         var items = ["这段任职记录和工作安排"]
         let salaryCount = CareerRules.stages(stages, for: job).count
         if salaryCount > 0 { items.append("\(salaryCount) 条薪资记录") }
+        let contributionCount = CareerRules.contributions(contributions, for: job).count
+        if contributionCount > 0 { items.append("\(contributionCount) 条缴纳记录") }
         if job.severanceData != nil { items.append("补偿设置") }
         let stocks = StockRules.holdings(holdings.filter { $0.employmentID == job.id })
         if !stocks.isEmpty {
@@ -225,7 +241,7 @@ private struct EmploymentDetail: View {
             items.append("\(stocks.count) 份公司股票记录\(count)，包括持股、授予和归属计划")
         }
         return "将永久删除：\n" + items.map { "· " + $0 }.joined(separator: "\n")
-            + "\n\n今日收入和财富统计会重新计算，此操作无法撤销。\n\n如果只是离职，请取消并填写离职日期。"
+            + "\n\n今日收入和财富统计会重新计算，此操作无法撤销。\n\n如果只是离职，请取消并填写离职月份。"
     }
 
     private func deleteEmployment() {
@@ -242,20 +258,205 @@ private struct SalaryDetails: View {
     let stage: SalaryStage
     var body: some View {
         LabeledContent("税前月薪", value: ProfileRules.money(stage.salaryCents))
-        contribution("养老金", rate: stage.pensionBasisPoints)
-        contribution("公积金", rate: stage.housingBasisPoints)
         LabeledContent("年终奖", value: ProfileRules.money(stage.bonusCents))
         if stage.bonusCents != nil { LabeledContent("奖金发放月份", value: "\(stage.bonusMonth) 月") }
-        if stage.effectiveDate == nil { Text("沿用已录入待遇，生效日期待补充。").font(.caption).foregroundStyle(.secondary) }
+        if stage.effectiveDate == nil { Text("沿用已录入待遇，生效月份待补充。").font(.caption).foregroundStyle(.secondary) }
     }
-    private func contribution(_ title: String, rate: Int64?) -> some View {
-        LabeledContent {
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(rate.map { "\(ProfileRules.input($0))%" } ?? "待填写")
-                if let amount = ProfileRules.monthlyContribution(salaryCents: stage.salaryCents, rateBasisPoints: rate) {
-                    Text("\(ProfileRules.money(amount))/月（估算）").font(.caption).foregroundStyle(.secondary)
+}
+
+private struct ContributionEmploymentList: View {
+    let jobs: [Employment]
+    let now: Date
+    let kind: ContributionKind
+    @Query private var records: [ContributionStage]
+    @Query private var insuranceMonths: [SocialInsuranceMonth]
+
+    private var current: [Employment] { CareerRules.employments(jobs).filter { $0.isCurrent(on: now) } }
+    private var history: [Employment] { CareerRules.employments(jobs).filter { !$0.isCurrent(on: now) } }
+    private var documentedMonths: [SocialInsuranceMonth] {
+        Dictionary(grouping: insuranceMonths, by: \.id).values
+            .compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }
+    }
+    private var paidPensionMonths: [SocialInsuranceMonth] {
+        documentedMonths.filter { $0.pensionPersonalCents != nil }
+    }
+    var body: some View {
+        List {
+            if kind == .pension {
+                Section {
+                    NavigationLink(value: ProfileRoute.socialInsuranceLimits) {
+                        Label("基数范围", systemImage: "chart.bar.doc.horizontal")
+                    }
+                    .accessibilityIdentifier("pension.baseRange")
+                    NavigationLink(value: ProfileRoute.pensionShortfall) {
+                        Label("疑似少缴", systemImage: "exclamationmark.triangle")
+                    }
+                    .accessibilityIdentifier("pension.shortfall")
+                }
+            } else {
+                Section {
+                    NavigationLink(value: ProfileRoute.housingFundLimits) {
+                        Label("基数范围", systemImage: "chart.bar.doc.horizontal")
+                    }
+                    .accessibilityIdentifier("housing.baseRange")
+                    NavigationLink(value: ProfileRoute.housingShortfall) {
+                        Label("疑似少缴", systemImage: "exclamationmark.triangle")
+                    }
+                    .accessibilityIdentifier("housing.shortfall")
                 }
             }
-        } label: { Text(title) }
+            if kind == .pension && !paidPensionMonths.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("个人累计实缴")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text(ProfileRules.money(paidPensionMonths.reduce(Int64.zero) { $0 + ($1.pensionPersonalCents ?? 0) }))
+                            .font(.largeTitle.weight(.semibold))
+                            .monospacedDigit()
+                        Text("参保证明中有金额的 \(paidPensionMonths.count) 个月")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                } footer: {
+                    Text("这是已记录的个人养老保险缴费合计，不是养老账户当前余额；未记录的月份不计入。")
+                }
+            }
+            if jobs.isEmpty {
+                ContentUnavailableView("尚无企业履历", systemImage: "building.2", description: Text("先录入任职经历，再记录对应企业的\(kind.title)。"))
+                NavigationLink("前往企业履历", value: CareerDestination.history)
+            }
+            if !current.isEmpty {
+                Section("当前任职") { ForEach(current) { job in row(job) } }
+            }
+            if !history.isEmpty {
+                Section("历史任职") { ForEach(history) { job in row(job) } }
+            }
+        }
+        .neutralPageBackground()
+        .navigationTitle(kind.title)
+    }
+    private func row(_ job: Employment) -> some View {
+        let configurationCount = CareerRules.contributions(records, for: job, kind: kind).count
+        let proofCount = kind == .pension ? insuranceMonths.filter { $0.employmentID == job.id }.count : 0
+        let countLabel = proofCount == 0 ? "\(configurationCount) 条基数记录" : "\(proofCount) 个月实缴\(configurationCount == 0 ? "" : " · \(configurationCount) 条基数记录")"
+        return NavigationLink(value: kind == .pension ? CareerDestination.pensionEmployment(job.id) : .housingEmployment(job.id)) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(job.displayName)
+                Text("\(CareerRules.employmentMonthLabel(job.start)) 至 \(job.end.map { CareerRules.employmentMonthLabel($0) } ?? "目前在职") · \(countLabel)")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct ContributionOverview: View {
+    let job: Employment
+    let kind: ContributionKind
+    @Environment(CareerClock.self) private var clock
+    @Query private var records: [ContributionStage]
+    @Query private var insuranceMonths: [SocialInsuranceMonth]
+    @State private var adding = false
+    @State private var editing: ContributionStage?
+
+    private var current: ContributionStage? { CareerRules.contribution(records, for: job, kind: kind, on: clock.now) }
+    private var documentedMonths: [SocialInsuranceMonth] {
+        guard kind == .pension else { return [] }
+        return Dictionary(grouping: insuranceMonths.filter { $0.employmentID == job.id }, by: \.id).values
+            .compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }
+            .sorted { $0.month > $1.month }
+    }
+    private var recordActionTitle: String {
+        CareerRules.contributions(records, for: job, kind: kind).isEmpty
+            ? "新增\(kind.title)记录" : "记录\(kind.title)调整"
+    }
+    var body: some View {
+        List {
+            Section("任职企业") { LabeledContent("企业名称", value: job.displayName) }
+            Section(job.isCurrent(on: clock.now) ? "最近记录的缴纳配置" : "离职时缴纳") {
+                if let current {
+                    ContributionKindDetails(kind: kind, base: kind.base(current), rate: kind.rate(current))
+                    LabeledContent("生效月份", value: CareerRules.monthLabel(current.effectiveMonth))
+                    if kind == .pension, let through = current.pensionVerifiedThroughMonth {
+                        LabeledContent("已核实沿用至", value: CareerRules.monthLabel(through))
+                    }
+                    Button("修改这条记录", systemImage: "pencil") { editing = current }
+                } else {
+                    Text(documentedMonths.isEmpty ? "暂无缴纳记录" : "未单独配置缴纳基数；下方为参保证明中的逐月实缴记录。")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            let ordered = CareerRules.contributions(records, for: job, kind: kind)
+            Section {
+                Button(recordActionTitle, systemImage: "plus") { adding = true }
+                ForEach(ordered) { record in
+                    Button { editing = record } label: {
+                        HStack {
+                            ContributionKindStageRow(record: record, kind: kind)
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("修改这条\(kind.title)记录")
+                }
+            } header: {
+                Text("缴纳基数记录")
+            } footer: {
+                Text("每条从生效月份起沿用，直到下一次调整；无需逐月重复录入基数。")
+            }
+            if !documentedMonths.isEmpty {
+                Section {
+                    let total = documentedMonths.compactMap(\.pensionPersonalCents).reduce(Int64.zero, +)
+                    LabeledContent("已记录个人养老缴费合计", value: ProfileRules.money(total))
+                    ForEach(documentedMonths) { month in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(CareerRules.monthLabel(month.month)).fontWeight(.medium)
+                            Text("缴费基数 \(ProfileRules.money(CareerRules.pensionBase(records, for: job, on: month.month) ?? month.pensionBaseCents)) · 个人实缴 \(ProfileRules.money(month.pensionPersonalCents))")
+                                .foregroundStyle(.secondary)
+                            Text(month.payerName + (month.remark.isEmpty ? "" : " · \(month.remark)"))
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.subheadline)
+                    }
+                } header: {
+                    Text("参保证明 · \(documentedMonths.count) 个月")
+                } footer: {
+                    Text("仅统计证明列出的月份和个人养老缴费，不推算其他月份，也不代表养老账户余额。")
+                }
+            }
+        }
+        .neutralPageBackground()
+        .navigationTitle(kind.title)
+        .sheet(isPresented: $adding) { ContributionEditor(job: job, record: nil, previous: current, kind: kind) }
+        .sheet(item: $editing) { ContributionEditor(job: job, record: $0, previous: nil, kind: kind) }
+    }
+}
+
+private struct ContributionKindDetails: View {
+    let kind: ContributionKind
+    let base: Int64?
+    let rate: Int64?
+    var body: some View {
+        LabeledContent("缴纳基数", value: ProfileRules.money(base))
+        LabeledContent("个人比例", value: rate.map { "\(ProfileRules.input($0))%" } ?? "待填写")
+    }
+}
+
+private struct ContributionKindStageRow: View {
+    let record: ContributionStage
+    let kind: ContributionKind
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(CareerRules.monthLabel(record.effectiveMonth) + "起").fontWeight(.medium)
+            Text("基数 \(ProfileRules.money(kind.base(record))) · 个人比例 \(kind.rate(record).map { "\(ProfileRules.input($0))%" } ?? "待填写")")
+                .foregroundStyle(.secondary)
+            if kind == .pension, let through = record.pensionVerifiedThroughMonth {
+                Text("已核实沿用至 \(CareerRules.monthLabel(through))")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

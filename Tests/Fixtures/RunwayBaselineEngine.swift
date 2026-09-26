@@ -31,13 +31,17 @@ import Foundation
             noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: date), on: date)?.amountCents
     }
 
-    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int = 100) async -> RunwayResult {
+    static func calculate(plan: RunwayPlan, profile: UserProfile?, stocks: [StockHolding], jobs: [Employment], stages: [SalaryStage], expenses: [RecurringExpense], liabilities: [LiabilityAccount], today: Date, years: Int? = nil) async -> RunwayResult {
         let today = day(today)
         let origin = plan.mode == .employed ? today : day(plan.lossDate ?? today)
-        let limit = calendar.date(byAdding: .year, value: years, to: max(today, origin))!
         var result = RunwayResult(origin: origin, end: today)
         func invalid(_ message: String) -> RunwayResult { var r = result; r.issue = message; return r }
         if let error = validation(plan, today: today) { return invalid(error) }
+        guard let retirement = profile.flatMap({ ProfileRules.retirementDate(year: $0.birthYear, month: $0.birthMonth, gender: $0.gender, femaleAge: $0.femaleRetirementAge) }) else {
+            return invalid("请先在基本信息中完善出生年月、性别和退休类别，以计算退休时间。")
+        }
+        guard retirement > origin else { return invalid("退休时间已到或早于预测起点，无法计算生存时长。") }
+        let limit = years.map { min(retirement, calendar.date(byAdding: .year, value: $0, to: max(today, origin))!) } ?? retirement
         guard let profile, let initialCash = profile.cashCents, initialCash >= 0 else { return invalid("请在财富中登记现金余额，没有现金可填写 0。") }
         guard let stock = StockRules.portfolio(stocks, profile: profile, on: today) ?? (stocks.isEmpty && profile.stockCents == nil && profile.stockSharesHundredths == nil && profile.stockPriceCents == nil ? 0 : nil) else { return invalid("请完善财富中的股票数量与估值。") }
         if profile.investmentCents != nil && profile.investmentCents != 0 && (profile.investmentRegistrationDate == nil || profile.investmentAnnualReturnBasisPoints == nil) { return invalid("请补全理财登记日期与收益率。") }
@@ -70,7 +74,6 @@ import Foundation
         }
         // A conservative certificate: two years of cash buffer + guaranteed annual
         // salary/flexible income cover an upper bound of every expense, with no debts.
-        let annualUpper = plans.reduce(Decimal.zero) { $0 + Decimal($1.amount) * Decimal(12 / $1.frequency.rawValue) }
         while date < limit {
             if Task.isCancelled { return invalid("计算已取消") }
             let currentMonth = ExpenseRules.month(date)
@@ -123,15 +126,6 @@ import Foundation
             cash -= needed
             result.end = date
             if cash + equity + (investment?.value ?? 0) > Decimal(ProfileRules.maximumMoneyCents) { return invalid("预测资产超过支持的金额范围，请调整资料。") }
-            let stable = plan.mode != .temporary || returned
-            let noFutureSalary = !working || returned || !CareerRules.stages(stages, for: job!).contains { ($0.effectiveDate ?? .distantFuture) > date }
-            let guaranteed = working ? (returned ? plan.salary : job.flatMap { CareerRules.salary(stages, for: $0, on: date)?.salaryCents }) : plan.flexible
-            if date >= origin && date >= calendar.date(byAdding: .year, value: 1, to: origin)! && stable && noFutureSalary && accounts.isEmpty,
-               let guaranteed, Decimal(guaranteed) * 12 + max(0, (investment?.capital ?? 0) * (investment?.rate ?? 0)) >= annualUpper, cash >= annualUpper * 2 {
-                result.sustainable = true
-                result.points.append(point(date))
-                return result
-            }
             date = calendar.date(byAdding: .day, value: 1, to: date)!
         }
         result.end = limit

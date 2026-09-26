@@ -7,9 +7,13 @@ enum EmploymentDeletion {
         do {
             let jobs = try context.fetch(FetchDescriptor<Employment>()).filter { $0.id == id }
             let stages = try context.fetch(FetchDescriptor<SalaryStage>()).filter { $0.employmentID == id }
+            let contributions = try context.fetch(FetchDescriptor<ContributionStage>()).filter { $0.employmentID == id }
+            let insuranceMonths = try context.fetch(FetchDescriptor<SocialInsuranceMonth>()).filter { $0.employmentID == id }
             let holdings = try context.fetch(FetchDescriptor<StockHolding>()).filter { $0.employmentID == id }
             for holding in holdings { context.delete(holding) }
             for stage in stages { context.delete(stage) }
+            for contribution in contributions { context.delete(contribution) }
+            for month in insuranceMonths { context.delete(month) }
             for job in jobs { context.delete(job) }
             try save(context)
         } catch {

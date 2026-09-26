@@ -20,17 +20,17 @@ struct RunwayView: View {
     @State private var requestID = UUID()
     private var shownResult: RunwayResult? { resultPlan?.mode == mode ? result : nil }
     private var shownPlan: RunwayPlan { resultPlan ?? plan }
-    @State private var cardFrame = CGRect.zero
-    @State private var expansionOrigin = CGRect.zero
     @State private var breakdown = false
     @State private var explaining = false
     @State private var compensation = false
-    @State private var detail = false
+    @State private var editingRetirement = false
     @State private var editing = false
     @State private var fullscreen = false
+    @State private var investmentIncomeFullscreen = false
     @State private var example = false
     @State private var years = 5
     @State private var selection: Date?
+    @State private var investmentIncomeSelection: Date?
     @State private var initialized = false
     @State private var saveError: String?
     @State private var editingAsset = false
@@ -50,20 +50,12 @@ struct RunwayView: View {
         [ProfileRules.dateKey(clock.now), mode.rawValue,
          plan.cacheKey,
          wealthKey,
+         profile?.birthYear.map(String.init) ?? "nil", profile?.birthMonth.map(String.init) ?? "nil",
+         profile?.gender ?? "nil", profile?.femaleRetirementAge.map(String.init) ?? "nil",
          jobs.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), stages.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(),
          stocks.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), expenses.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), liabilities.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined()].joined(separator: "|")
     }
     var body: some View {
-        ZStack {
-            home
-                .allowsHitTesting(!detail)
-                .accessibilityHidden(detail)
-            if detail { detailPage.transition(.identity).zIndex(1) }
-        }
-        .toolbar(detail ? .hidden : .visible, for: .tabBar)
-        .interactiveDismissDisabled(detail)
-    }
-    private var home: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -71,17 +63,16 @@ struct RunwayView: View {
                         Label("示例数据 · 不影响你的账本", systemImage: "sparkles")
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("runway.example")
                     }
-                    Button { presentDetail(true) } label: {
-                        cardHeader(expanded: false)
+                    NavigationLink {
+                        detailPage
+                    } label: {
+                        cardHeader
                             .background(cardBackground, in: RoundedRectangle(cornerRadius: 28))
                     }
-                    .buttonStyle(RunwayCardPressStyle())
-                    .opacity(detail ? 0 : 1)
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("runway.card")
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { cardFrame = $0 }
                 }.padding(20)
             }
-            .accessibilityHidden(detail)
             .neutralPageBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -120,16 +111,8 @@ struct RunwayView: View {
             Spacer()
         }
     }
-    private func presentDetail(_ value: Bool) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            if value { expansionOrigin = cardFrame }
-            detail = value
-        }
-    }
-    @ViewBuilder private func cardHeader(expanded: Bool) -> some View {
-        if let r = shownResult, r.issue == nil { hero(r, expanded: expanded) }
+    @ViewBuilder private var cardHeader: some View {
+        if let r = shownResult, r.issue == nil { hero(r) }
         else {
             VStack(alignment: .leading, spacing: 18) {
                 cardHeading
@@ -141,18 +124,19 @@ struct RunwayView: View {
         }
     }
     private var detailPage: some View {
-        RunwayCardExpansion(source: expansionOrigin, onClose: { presentDetail(false) }) {
-            cardHeader(expanded: true)
-        } details: {
+        ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                resultSummary
                 if updating { Label("正在按新设置更新…", systemImage: "arrow.trianglehead.2.clockwise.rotate.90").font(.caption).foregroundStyle(.secondary) }
                 if let r = shownResult {
                     if let issue = r.issue { missing(issue) }
                     else {
                         scenarioSummary
                         if r.opening != nil {
-                            trend(r)
                             assets(r)
+                            chartRange
+                            trend(r)
+                            investmentIncomeTrend(r)
                             Button { breakdown = true } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 5) {
@@ -172,6 +156,15 @@ struct RunwayView: View {
                 if !isExample { Button("查看示例效果") { example = true }.font(.subheadline).accessibilityIdentifier("runway.demo") }
             }.padding(24)
         }
+        .navigationTitle("生存时长")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("调整情景") { editing = true }
+                    .accessibilityIdentifier("runway.edit")
+            }
+        }
+        .sheet(isPresented: $editingRetirement) { ProfileEditor(section: .basic, profile: profile) }
         .sheet(isPresented: $editing) { RunwayEditor(records: settings, draft: plan) }
         .sheet(isPresented: $editingAsset) { ProfileEditor(section: .wealth, profile: profile, wealthScope: assetScope) }
         .sheet(isPresented: $example) { RunwayDemoHost() }
@@ -189,19 +182,44 @@ struct RunwayView: View {
         .fullScreenCover(isPresented: $fullscreen) {
             if let result = shownResult { RunwayFullscreen(result: result, plan: shownPlan, years: $years, selection: $selection) }
         }
+        .fullScreenCover(isPresented: $investmentIncomeFullscreen) {
+            if let result = shownResult { RunwayInvestmentIncomeFullscreen(result: result, years: $years, selection: $investmentIncomeSelection) }
+        }
     }
-    private func hero(_ r: RunwayResult, expanded: Bool = false) -> some View {
+    private var resultSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("预测结果").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            if let r = shownResult, r.issue == nil {
+                let before = (r.failure ?? .distantFuture) < r.origin
+                Text(before ? "请调整失业计划" : r.duration)
+                    .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    .minimumScaleFactor(0.7).lineLimit(1)
+                    .accessibilityIdentifier("runway.detailResult")
+                Text(before ? "预计在失业日期前已无法支付开支。" : r.failure.map { "预计在 \(ExpenseRules.dateLabel($0)) 首次无法支付到期支出。" } ?? "预计可维持至退休前。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("从 \(ExpenseRules.dateLabel(r.origin)) 起算 · \(shownPlan.mode.title) · 税前口径")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text(shownResult?.issue == nil ? "正在计算预测…" : "还差一点资料")
+                    .font(.title2.bold())
+                Text(shownResult?.issue ?? "正在整理你的收入、资产与开支。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private func hero(_ r: RunwayResult) -> some View {
         let before = (r.failure ?? .distantFuture) < r.origin
         return VStack(alignment: .leading, spacing: 16) {
             cardHeading
             Text("当前情景 · \(shownPlan.mode.title)").font(.subheadline.weight(.medium))
-            Label(before ? "失业前资金不足" : r.sustainable ? "按当前配置" : r.failure == nil ? "按当前情景，至少可生存" : "按当前情景，预计可生存", systemImage: before ? "exclamationmark.circle" : "leaf")
+            Label(before ? "失业前资金不足" : r.failure == nil ? "按当前情景，至少可生存" : "按当前情景，预计可生存", systemImage: before ? "exclamationmark.circle" : "leaf")
                 .font(.subheadline).foregroundStyle(.secondary)
-            Text(before ? "请调整失业计划" : r.sustainable ? "可持续生存" : r.duration)
+            Text(before ? "请调整失业计划" : r.duration)
                 .font(.system(size: 35, weight: .semibold, design: .rounded))
                 .minimumScaleFactor(0.7).lineLimit(1)
-                .accessibilityIdentifier(expanded ? "runway.detailResult" : "runway.result")
-            Text(before ? "预计在 \(ExpenseRules.dateLabel(r.failure!)) 已无法支付开支，尚未到达失业日期。" : r.sustainable ? "工资、灵活收入或理财收益足以覆盖长期支出，且已有充足现金缓冲。" : r.failure.map { "预计在 \(ExpenseRules.dateLabel($0)) 首次无法支付到期支出" } ?? "在本次计算范围内，全部资金仍能支撑生活。")
+                .accessibilityIdentifier("runway.result")
+            Text(before ? "预计在 \(ExpenseRules.dateLabel(r.failure!)) 已无法支付开支，尚未到达失业日期。" : r.failure.map { "预计在 \(ExpenseRules.dateLabel($0)) 首次无法支付到期支出" } ?? "在本次计算范围内，全部资金仍能支撑生活。")
                 .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider().overlay(DashboardStyle.cash.opacity(0.1))
             HStack {
@@ -214,11 +232,7 @@ struct RunwayView: View {
     }
     private var scenarioSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("当前情景").font(.headline)
-                Spacer()
-                Button("调整情景") { editing = true }.font(.subheadline).accessibilityIdentifier("runway.edit")
-            }
+            Text("当前情景").font(.headline)
             summaryRow("情景模式", shownPlan.mode.title)
             if mode == .employed {
                 Text("继续在当前公司工作，沿用任职薪资与发薪日。")
@@ -241,24 +255,20 @@ struct RunwayView: View {
                 Text(message).font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("runway.missing")
             }
-            if needsScenario || isExample {
-                Button { editing = true } label: { preparationAction("调整情景") }
-                    .accessibilityIdentifier("runway.edit")
-            } else if message.contains("理财") || message.contains("现金") {
+            if message.contains("退休") || message.contains("出生年月") {
+                Button { editingRetirement = true } label: { preparationAction("完善出生年月与退休信息") }
+                    .accessibilityIdentifier("runway.editRetirement")
+            } else if !needsScenario && (message.contains("理财") || message.contains("现金")) {
                 Button {
                     assetScope = message.contains("理财") ? .investment : .cash
                     editingAsset = true
                 } label: { preparationAction(message.contains("理财") ? "完善理财资料" : "登记现金余额") }
-            } else if message.contains("补偿") {
+            } else if !needsScenario && message.contains("补偿") {
                 Button { compensation = true } label: { preparationAction("完善裁员补偿") }
-            } else {
+            } else if !needsScenario {
                 Button {
-                    presentDetail(false)
                     navigation.selectedTab = message.contains("薪资") || message.contains("任职") ? .profile : .wealth
                 } label: { preparationAction(message.contains("薪资") || message.contains("任职") ? "完善任职与薪资" : "前往财富完善资料") }
-            }
-            if !needsScenario && !isExample {
-                Button("调整情景") { editing = true }.font(.subheadline).accessibilityIdentifier("runway.edit")
             }
         }.buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading).padding(22)
@@ -274,6 +284,22 @@ struct RunwayView: View {
         .background(DashboardStyle.cash.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
         .contentShape(RoundedRectangle(cornerRadius: 14))
     }
+    private var chartRange: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("时间范围").font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("应用于下方两张图表").font(.caption).foregroundStyle(.secondary)
+            }
+            Picker("图表时间范围", selection: $years) {
+                Text("未来 1 年").tag(1)
+                Text("未来 5 年").tag(5)
+                Text("完整过程").tag(0)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("runway.chartRange")
+        }
+    }
     private func trend(_ r: RunwayResult) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
@@ -282,7 +308,6 @@ struct RunwayView: View {
                 Button { fullscreen = true } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44) }
                     .accessibilityLabel("全屏查看资产趋势").accessibilityIdentifier("runway.expand")
             }
-            Picker("查看范围", selection: $years) { Text("未来 1 年").tag(1); Text("未来 5 年").tag(5); Text("完整过程").tag(0) }.pickerStyle(.segmented)
             RunwayChart(result: r, plan: shownPlan, years: years, selection: $selection).frame(height: 220)
             if let selection, let p = r.points.min(by: { abs($0.date.timeIntervalSince(selection)) < abs($1.date.timeIntervalSince(selection)) }) {
                 Text("\(ExpenseRules.dateLabel(p.date)) · 资产 \(ProfileRules.money(p.total))").font(.caption).monospacedDigit()
@@ -292,18 +317,47 @@ struct RunwayView: View {
             }
         }
     }
-    private func assets(_ r: RunwayResult) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(mode == .employed ? "当前资产" : "失业起始本金").font(.headline)
-            if let p = r.opening {
-                Text(ProfileRules.money(p.total)).font(.title.bold()).monospacedDigit()
-                summaryRow("现金", ProfileRules.money(p.cash - r.compensation))
-                summaryRow("已归属股票", ProfileRules.money(p.stock))
-                summaryRow("理财", ProfileRules.money(p.investment))
-                if mode != .employed { summaryRow("裁员补偿", ProfileRules.money(r.compensation)) }
+    private func investmentIncomeTrend(_ r: RunwayResult) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("理财收益如何变化").font(.headline)
+                Spacer()
+                Button { investmentIncomeFullscreen = true } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44) }
+                    .accessibilityLabel("全屏查看理财收益趋势").accessibilityIdentifier("runway.expandInvestmentIncome")
             }
-            Text("支付开支时，依次使用现金、股票、理财。理财只赎回所需金额。").font(.caption).foregroundStyle(.secondary)
-        }.padding(20).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 22))
+            RunwayInvestmentIncomeChart(result: r, years: years, selection: $investmentIncomeSelection).frame(height: 220)
+            if let investmentIncomeSelection, let point = RunwayInvestmentIncomeChart.monthlyPoints(result: r).min(by: { abs($0.date.timeIntervalSince(investmentIncomeSelection)) < abs($1.date.timeIntervalSince(investmentIncomeSelection)) }) {
+                Text("\(ProfileRules.calendar.dateComponents([.year, .month], from: point.date).year!) 年 \(ProfileRules.calendar.dateComponents([.month], from: point.date).month!) 月 · 理财收益 \(ProfileRules.money(point.gain))")
+                    .font(.caption).monospacedDigit()
+            } else {
+                Text("按月展示理财产生的收益，不含本金和赎回金额。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+    private func assets(_ r: RunwayResult) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(mode == .employed ? "当前资产" : "失业起始资产").font(.headline)
+                Spacer()
+                Text("测算起点").font(.caption).foregroundStyle(.secondary)
+            }
+            if let p = r.opening {
+                Text(ProfileRules.money(p.total))
+                    .font(.title2.bold()).monospacedDigit()
+                    .accessibilityIdentifier("runway.openingTotal")
+                VStack(alignment: .leading, spacing: 10) {
+                    summaryRow("现金", ProfileRules.money(p.cash - r.compensation))
+                    summaryRow("已归属股票", ProfileRules.money(p.stock))
+                    summaryRow("理财", ProfileRules.money(p.investment))
+                    if mode != .employed { summaryRow("裁员补偿", ProfileRules.money(r.compensation)) }
+                }
+                .font(.subheadline).foregroundStyle(.secondary)
+            }
+            Text("支付开支时，依次使用现金、股票、理财；理财只赎回所需金额。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     private var explanation: some View {
         List {
@@ -316,8 +370,7 @@ struct RunwayView: View {
                 Text("理财收益留在理财中，沿用财富的单利或每满 365 天复投规则。赎回先使用未复投收益，再使用本金，已取出的资金不再计息。")
             }
             Section("生存结果") {
-                Text("全部可用资金不足以支付到期支出的首日为终点。系统最多推算 100 年；未找到终点时显示至少可生存的时长，而非宣称无限生存。")
-                Text("只有无债务、稳定工资、灵活收入及理财收益覆盖全部计划的年度支出上界，且现金缓冲达到该上界两倍时，才提前判定可持续生存。其他情况继续推算。")
+                Text("全部可用资金不足以支付到期支出的首日为终点。系统推算至退休年月；在此之前未找到终点时，显示截至退休前至少可生存的时长。")
             }
             Section("数据来源") {
                 Text("生活支出直接读取日常开支记录；还款只读取负债的还款安排，不再叠加财富页面汇总值。未计入通胀、股价变化、未来未登记的股票归属及未登记消费。")

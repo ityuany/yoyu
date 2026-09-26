@@ -5,10 +5,15 @@ import SwiftData
     let container: ModelContainer
     let clock = CareerClock()
     init() {
-        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
+        let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, ContributionStage.self, SocialInsuranceMonth.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
         container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         clock.now = ProfileRules.date(2026, 9, 22)
         let p = UserProfile()
+        if !ProcessInfo.processInfo.arguments.contains("--runway-missing-retirement") {
+            p.birthYear = 1990
+            p.birthMonth = 1
+            p.gender = "男"
+        }
         p.cashCents = 80_000_00
         p.stockCents = 120_000_00
         p.investmentCents = 200_000_00

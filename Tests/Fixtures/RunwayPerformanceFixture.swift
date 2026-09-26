@@ -14,6 +14,9 @@ import Foundation
     init(_ name: String, years: Int, expenseCount: Int = 1, loans: Bool = false, example: Bool = false) throws {
         self.name = name; self.years = years
         let p = UserProfile()
+        p.birthYear = 1990
+        p.birthMonth = 1
+        p.gender = "男"
         p.cashCents = example ? 80_000_00 : 50_000_000_00
         p.stockCents = 120_000_00; p.investmentCents = 200_000_00
         p.investmentRegistrationDate = ProfileRules.date(2026, 9, 22)

@@ -2,7 +2,7 @@ import Foundation
 
 /// A read-only snapshot. All totals use the same rules as the financial screens.
 enum FinancialMarkdown {
-    static func make(profiles: [UserProfile], jobs: [Employment], stages: [SalaryStage], holdings: [StockHolding], liabilities: [LiabilityAccount], expenses: [RecurringExpense], now: Date) -> String {
+    static func make(profiles: [UserProfile], jobs: [Employment], stages: [SalaryStage], contributions: [ContributionStage] = [], socialInsuranceMonths: [SocialInsuranceMonth] = [], holdings: [StockHolding], liabilities: [LiabilityAccount], expenses: [RecurringExpense], now: Date) -> String {
         let wealth = profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) }
         let basic = profiles.max { $0.updatedAt(for: .basic) < $1.updatedAt(for: .basic) }
         let jobs = CareerRules.employments(jobs)
@@ -19,11 +19,28 @@ enum FinancialMarkdown {
         lines += ["", "## 个人背景", "", "- 出生年份：\(basic?.birthYear.map(String.init) ?? "未填写")；月份：\(basic?.birthMonth.map(String.init) ?? "未填写")", "- 性别：\(text(basic?.gender ?? ""))", "- 退休信息：\(text(basic?.retirement ?? ""))", "", "## 理财参数", "", "- 本金：\(money(wealth?.investmentCents))", "- 年化收益率：\(percent(wealth?.investmentAnnualReturnBasisPoints))", "- 登记日期：\(date(wealth?.investmentRegistrationDate))", "- 计息方式：\(text(wealth?.investmentInterestMode ?? ""))", "- 现值按登记参数估算，不代表银行已实现收益。", "", "## 企业履历与收入", ""]
         if jobs.isEmpty { lines.append("未记录企业履历。") }
         for job in jobs {
-            lines += ["### \(text(job.displayName))", "", "- 任职：\(date(job.start)) 至 \(job.end.map { date($0) } ?? "未填写离职日期")", "- 当前任职：\(job.isCurrent(on: now) ? "是" : "否")", "- 工作安排：\(workdays(job.workweekMask))；\(job.startMinutes / 60):\(String(format: "%02d", job.startMinutes % 60))–\(job.endMinutes / 60):\(String(format: "%02d", job.endMinutes % 60))"]
+            lines += ["### \(text(job.displayName))", "", "- 任职：\(CareerRules.employmentMonthLabel(job.start)) 至 \(job.end.map { CareerRules.employmentMonthLabel($0) } ?? "目前在职")", "- 当前任职：\(job.isCurrent(on: now) ? "是" : "否")", "- 工作安排：\(workdays(job.workweekMask))；\(job.startMinutes / 60):\(String(format: "%02d", job.startMinutes % 60))–\(job.endMinutes / 60):\(String(format: "%02d", job.endMinutes % 60))"]
             let salary = CareerRules.stages(stages, for: job)
             if salary.isEmpty { lines.append("- 薪资阶段：未记录") }
             for stage in salary {
-                lines.append("- 生效 \(date(stage.effectiveDate))：月薪 \(money(stage.salaryCents))；年终奖 \(money(stage.bonusCents))，\(stage.bonusMonth) 月发放；个人养老比例 \(percent(stage.pensionBasisPoints))；公积金比例 \(percent(stage.housingBasisPoints))；原因：\(text(stage.reason))")
+                lines.append("- 生效 \(CareerRules.employmentMonthLabel(stage.effectiveDate))：月薪 \(money(stage.salaryCents))；年终奖 \(money(stage.bonusCents))，\(stage.bonusMonth) 月发放；原因：\(text(stage.reason))")
+            }
+            let paymentRecords = CareerRules.contributions(contributions, for: job)
+            if paymentRecords.isEmpty { lines.append("- 养老保险与住房公积金缴纳记录：未录入") }
+            for record in paymentRecords {
+                if record.pensionBaseCents != nil || record.pensionBasisPoints != nil {
+                    lines.append("- 养老保险生效 \(date(record.effectiveMonth))：缴纳基数 \(money(record.pensionBaseCents))、个人比例 \(percent(record.pensionBasisPoints))\(record.pensionVerifiedThroughMonth.map { "；已核实沿用至 \(CareerRules.monthLabel($0))" } ?? "")")
+                }
+                if record.housingBaseCents != nil || record.housingBasisPoints != nil {
+                    lines.append("- 住房公积金生效 \(date(record.effectiveMonth))：缴纳基数 \(money(record.housingBaseCents))、个人比例 \(percent(record.housingBasisPoints))")
+                }
+            }
+            let documentedMonths = socialInsuranceMonths.filter { $0.employmentID == job.id }.sorted { $0.month < $1.month }
+            if !documentedMonths.isEmpty {
+                lines.append("- 社保参保证明实缴：\(documentedMonths.count) 个月；只含证明列出的月份，不代表账户余额。")
+                for month in documentedMonths {
+                    lines.append("  - \(CareerRules.monthLabel(month.month))：缴费单位 \(text(month.payerName))；养老基数 \(money(CareerRules.pensionBase(paymentRecords, for: job, on: month.month) ?? month.pensionBaseCents))、个人实缴 \(money(month.pensionPersonalCents))；失业基数 \(money(month.unemploymentBaseCents))、个人实缴 \(money(month.unemploymentPersonalCents))；工伤基数 \(money(month.injuryBaseCents))\(month.remark.isEmpty ? "" : "；备注 \(text(month.remark))")")
+                }
             }
             if job.isCurrent(on: now) {
                 lines.append("- 裁员补偿情景（未到账，不计资产）：")
@@ -40,7 +57,7 @@ enum FinancialMarkdown {
             lines.append("")
         }
         if let legacy = profiles.max(by: { $0.updatedAt(for: .employment) < $1.updatedAt(for: .employment) }), !legacy.careerMigrated {
-            lines += ["### 尚未迁移的旧收入资料（勿与履历重复相加）", "- 月薪：\(money(legacy.salaryCents))；年终奖：\(money(legacy.bonusCents))；奖金月：\(legacy.bonusMonth)", "- 入职：\(date(legacy.hireDate))；养老：\(percent(legacy.pensionBasisPoints))；公积金：\(percent(legacy.housingBasisPoints))", ""]
+            lines += ["### 尚未迁移的旧收入资料（勿与履历重复相加）", "- 月薪：\(money(legacy.salaryCents))；年终奖：\(money(legacy.bonusCents))；奖金月：\(legacy.bonusMonth)", "- 入职：\(date(legacy.hireDate))", ""]
         }
         lines += ["## 股票与全部归属计划", ""]
         if holdings.isEmpty { lines.append("未记录公司股票。") }
