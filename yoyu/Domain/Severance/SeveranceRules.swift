@@ -1,0 +1,148 @@
+import Foundation
+
+/// 可调整的税前情景估算；地区三倍社平标准由用户提供。
+enum SeveranceRules {
+    struct Estimate {
+        /// 金额，单位为分。
+        let amountCents: Int64
+        /// 工龄，单位为百分之一年。
+        let tenureHundredths: Int64?
+        /// 补偿工资基数，单位为分。
+        let baseSalaryCents: Int64?
+        /// 代通知金工资基数，单位为分。
+        let noticeSalaryCents: Int64?
+        /// 是否触发高工资补偿基数及年限的双重上限。
+        var isDoubleCapped: Bool = false
+    }
+
+    /// 最近 12 个完整自然月；不足 12 个月按本企业实际任职月数（零月按日折算）。
+    /// 将计算期内实际收到的税前年终奖计入，不读取股票等资产。
+    static func averageSalary(stages: [SalaryStage], bonuses: [BonusPayment] = [], job: Employment, on date: Date) -> Int64? {
+        let calendar = ProfileRules.calendar
+        guard let end = calendar.dateInterval(of: .month, for: date)?.start,
+              let start = calendar.date(byAdding: .month, value: -12, to: end),
+              let hire = job.start else { return nil }
+        let lower = max(start, calendar.startOfDay(for: hire))
+        guard let (salaryTotal, months) = incomeTotals(stages: stages, job: job, start: lower, end: end) else { return nil }
+        let bonusTotal = BonusRules.confirmed(bonuses, for: job).reduce(Decimal.zero) { sum, payment in
+            guard let year = payment.year,
+                  let paid = calendar.date(from: DateComponents(year: year, month: payment.month, day: 1)),
+                  paid >= lower, paid < end else { return sum }
+            return sum + Decimal(payment.amountCents ?? 0)
+        }
+        return roundedAverage(salaryTotal + bonusTotal, months: months)
+    }
+
+    static func previousMonthSalary(stages: [SalaryStage], job: Employment, on date: Date) -> Int64? {
+        let calendar = ProfileRules.calendar
+        guard let end = calendar.dateInterval(of: .month, for: date)?.start,
+              let start = calendar.date(byAdding: .month, value: -1, to: end),
+              let hire = job.start else { return nil }
+        guard let (total, months) = incomeTotals(stages: stages, job: job, start: max(start, calendar.startOfDay(for: hire)), end: end) else { return nil }
+        return roundedAverage(total, months: months)
+    }
+
+    private static func incomeTotals(stages: [SalaryStage], job: Employment, start: Date, end: Date) -> (Decimal, Decimal)? {
+        guard start < end else { return nil }
+        let calendar = ProfileRules.calendar
+        let stages = CareerRules.stages(stages, for: job)
+        guard !stages.contains(where: { $0.effectiveDate == nil }) else { return nil }
+        let dated = stages.map { (date: calendar.startOfDay(for: $0.effectiveDate!), stage: $0) }
+            .filter { $0.date < end }.sorted { $0.date < $1.date }
+        guard Set(dated.map(\.date)).count == dated.count else { return nil }
+        var cursor = start
+        var total = Decimal.zero
+        var months = Decimal.zero
+        while cursor < end {
+            guard let stage = dated.last(where: { $0.date <= cursor })?.stage,
+                  let salary = validMoney(stage.salaryCents),
+                  let month = calendar.dateInterval(of: .month, for: cursor),
+                  let days = calendar.range(of: .day, in: .month, for: cursor)?.count else { return nil }
+            let next = min(end, month.end, dated.first(where: { $0.date > cursor })?.date ?? end)
+            let fraction = Decimal(calendar.dateComponents([.day], from: cursor, to: next).day!) / Decimal(days)
+            total += Decimal(salary) * fraction
+            months += fraction
+            cursor = next
+        }
+        return months > 0 ? (total, months) : nil
+    }
+
+    private static func roundedAverage(_ total: Decimal, months: Decimal) -> Int64? {
+        var average = total / months
+        var rounded = Decimal.zero
+        NSDecimalRound(&rounded, &average, 0, .plain)
+        guard rounded >= 0, rounded <= Decimal(ProfileRules.maximumMoneyCents) else { return nil }
+        return NSDecimalNumber(decimal: rounded).int64Value
+    }
+
+    static func settings(for job: Employment) -> SeveranceSettings? {
+        if job.hasStructuredSeverance {
+            guard let plan = SeverancePlan(rawValue: job.severancePlanRaw) else { return nil }
+            return SeveranceSettings(plan: plan, baseSalaryCents: job.severanceBaseSalaryCents,
+                noticeSalaryCents: job.severanceNoticeSalaryCents, tenureHundredths: job.severanceTenureHundredths,
+                customAmountCents: job.severanceCustomAmountCents, tripleAverageSalaryCents: job.severanceTripleAverageSalaryCents)
+        }
+        guard let data = job.severanceData else { return SeveranceSettings() }
+        return try? JSONDecoder().decode(SeveranceSettings.self, from: data)
+    }
+
+    static func tenureHundredths(start: Date?, on date: Date) -> Int64? {
+        guard let start else { return nil }
+        let calendar = ProfileRules.calendar
+        let first = calendar.startOfDay(for: start)
+        let last = calendar.startOfDay(for: date)
+        guard first <= last,
+              let years = calendar.dateComponents([.year], from: first, to: last).year,
+              (0...100).contains(years),
+              let anniversary = calendar.date(byAdding: .year, value: years, to: first),
+              let halfYear = calendar.date(byAdding: .month, value: 6, to: anniversary) else { return nil }
+        let remainder: Int64
+        if years > 0 && last == anniversary { remainder = 0 }
+        else { remainder = last < halfYear ? 50 : 100 }
+        let value = Int64(years) * 100 + remainder
+        return value <= 10_000 ? value : nil
+    }
+
+    static func estimate(settings: SeveranceSettings, job: Employment, salaryCents: Int64?, noticeSalaryCents: Int64? = nil, on date: Date) -> Estimate? {
+        guard job.isCurrent(on: date) else { return nil }
+        if settings.plan == .customAmount {
+            guard let amount = validMoney(settings.customAmountCents) else { return nil }
+            return Estimate(amountCents: amount, tenureHundredths: nil, baseSalaryCents: nil, noticeSalaryCents: nil)
+        }
+        guard var tenure = settings.tenureHundredths ?? tenureHundredths(start: job.start, on: date),
+              (0...10_000).contains(tenure),
+              var base = validMoney(settings.baseSalaryCents ?? salaryCents) else { return nil }
+        var capped = false
+        if let cap = settings.tripleAverageSalaryCents {
+            guard validMoney(cap) != nil, cap > 0 else { return nil }
+            if base > cap {
+                base = cap
+                tenure = min(tenure, 1_200)
+                capped = true
+            }
+        }
+        let notice: Int64?
+        if settings.plan == .nPlusOne {
+            guard let value = validMoney(settings.noticeSalaryCents ?? noticeSalaryCents) else { return nil }
+            notice = value
+        } else { notice = nil }
+        let multiplier: Decimal = settings.plan == .twoN ? 2 : 1
+        var amount = Decimal(base) * Decimal(tenure) / 100 * multiplier + Decimal(notice ?? 0)
+        var rounded = Decimal.zero
+        NSDecimalRound(&rounded, &amount, 0, .plain)
+        guard rounded >= 0, rounded <= Decimal(ProfileRules.maximumMoneyCents) else { return nil }
+        return Estimate(amountCents: NSDecimalNumber(decimal: rounded).int64Value,
+                        tenureHundredths: tenure, baseSalaryCents: base, noticeSalaryCents: notice, isDoubleCapped: capped)
+    }
+
+    static func wealth(currentCents: Int64?, compensationCents: Int64?) -> Int64? {
+        guard let current = validMoney(currentCents), let compensation = validMoney(compensationCents),
+              current <= ProfileRules.maximumMoneyCents - compensation else { return nil }
+        return current + compensation
+    }
+
+    private static func validMoney(_ value: Int64?) -> Int64? {
+        guard let value, (0...ProfileRules.maximumMoneyCents).contains(value) else { return nil }
+        return value
+    }
+}
