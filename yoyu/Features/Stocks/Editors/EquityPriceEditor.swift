@@ -73,7 +73,7 @@ struct EquityPriceEditor: View {
                         TextField("批次名称", text: $grantName)
                         DatePicker("授予日期", selection: $grantDate, displayedComponents: .date)
                         equityField("授予总量（股）", text: $grantQuantity)
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                     Section {
                         Picker("录入方式", selection: $grantMode) {
                             Text("逐笔添加").tag(0)
@@ -98,11 +98,11 @@ struct EquityPriceEditor: View {
                         }
                     } header: { Text("归属计划") } footer: {
                         Text("可逐笔填写，或按总量生成 4 期后调整日期与数量。修改总量后请重新生成；未安排部分计入未归属。")
-                    }
-                    if let grantError { Text(grantError).font(.caption).foregroundStyle(.secondary) }
+                    }.listRowBackground(AppTheme.cardBackground)
+                    if let grantError { Text(grantError).font(.caption).foregroundStyle(AppTheme.secondaryText) }
                 } else {
                     Text("所有授予批次共用此价格，参考价值一起更新。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
             }.neutralPageBackground().navigationTitle(holding == nil ? "添加授予" : "设置股价")
             .environment(\.timeZone, ProfileRules.calendar.timeZone)

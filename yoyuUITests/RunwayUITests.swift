@@ -62,9 +62,16 @@ import XCTest
         XCTAssertEqual(app.segmentedControls.count, 1)
         let range = app.segmentedControls["runway.chartRange"]
         XCTAssertTrue(range.waitForExistence(timeout: 5))
-        for _ in 0..<3 where !range.isHittable { app.swipeDown() }
+        // A clipped picker can still report isHittable on iOS 27.
+        // Bring the complete control below the navigation bar before tapping.
+        for _ in 0..<6 {
+            let top = app.navigationBars.firstMatch.frame.maxY + 12
+            if range.frame.minY >= top && range.frame.maxY < app.frame.maxY - 100 { break }
+            app.swipeDown()
+        }
         XCTAssertTrue(range.isHittable)
         range.buttons["未来 1 年"].tap()
+        XCTAssertTrue(range.buttons["未来 1 年"].isSelected, app.debugDescription)
         for _ in 0..<3 where !expand.isHittable { app.swipeUp() }
         expand.tap()
         XCTAssertTrue(app.buttons["runway.closeInvestmentIncomeChart"].waitForExistence(timeout: 5))

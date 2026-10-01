@@ -49,7 +49,7 @@ struct RunwayDemoHost: View {
     @State private var data = RunwayDemoData()
     @State private var navigation = AppNavigation()
     var body: some View {
-        RunwayView(isExample: true)
+        AnalysisView(isExample: true)
             .modelContainer(data.container)
             .environment(data.clock)
             .environment(navigation)

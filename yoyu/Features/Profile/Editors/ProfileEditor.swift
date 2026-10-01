@@ -6,26 +6,12 @@ private struct ProfileDraft {
     var birthMonth: Int?
     var gender = ""
     var femaleRetirementAge: Int?
-    var hasHireDate = false
-    var hireDate = Date()
-    var salary = ""
-    var pension = ""
-    var housing = ""
-    var bonus = ""
-    var bonusMonth = 12
     var cash = ""
-    var stockShares = ""
-    var stockPrice = ""
-    var legacyStockCents: Int64?
     var investment = ""
     var annualReturn = ""
     var hasInvestmentDate = true
     var investmentDate = Date()
     var investmentMode = InvestmentInterestMode.simple
-    var workweek = Workweek.default
-    var startMinutes = 540
-    var endMinutes = 1080
-    var followsHolidays = true
 
     init(_ profile: UserProfile?) {
         guard let profile else { return }
@@ -33,28 +19,12 @@ private struct ProfileDraft {
         birthMonth = profile.birthMonth
         gender = profile.gender
         femaleRetirementAge = profile.femaleRetirementAge
-        hasHireDate = profile.hireDate != nil
-        hireDate = profile.hireDate ?? Date()
-        salary = ProfileRules.input(profile.salaryCents)
-        pension = ProfileRules.input(profile.pensionBasisPoints)
-        housing = ProfileRules.input(profile.housingBasisPoints)
-        bonus = ProfileRules.input(profile.bonusCents)
-        bonusMonth = profile.bonusMonth
         cash = ProfileRules.input(profile.cashCents)
-        stockShares = ProfileRules.input(profile.stockSharesHundredths)
-        stockPrice = ProfileRules.input(profile.stockPriceCents)
-        if profile.stockSharesHundredths == nil && profile.stockPriceCents == nil {
-            legacyStockCents = profile.stockCents
-        }
         investment = ProfileRules.input(profile.investmentCents)
         annualReturn = ProfileRules.input(profile.investmentAnnualReturnBasisPoints)
         hasInvestmentDate = profile.investmentRegistrationDate != nil || profile.investmentCents == nil
         investmentDate = profile.investmentRegistrationDate ?? Date()
         investmentMode = InvestmentInterestMode(rawValue: profile.investmentInterestMode) ?? .simple
-        workweek = profile.workweek
-        startMinutes = profile.startMinutes
-        endMinutes = profile.endMinutes
-        followsHolidays = profile.followsHolidays
     }
 }
 
@@ -92,7 +62,7 @@ struct ProfileEditor: View {
                 case .work: Text("请在企业履历中编辑工作安排。")
                 }
                 if let validationError {
-                    Section { Text(validationError).foregroundStyle(.red) }
+                    Section { Text(validationError).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground)
                 }
             }.neutralPageBackground()
             .navigationTitle(wealthScope?.title ?? section.rawValue)
@@ -139,21 +109,21 @@ struct ProfileEditor: View {
                 LabeledContent("法定退休年月", value: retirement)
             } footer: {
                 Text("按中国大陆普通职工渐进式延迟退休规则计算。女性需选择原法定退休年龄类别；不含特殊工种等提前退休情形。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
     }
 
     private var wealthFields: some View {
         Group {
             if wealthScope != .investment {
-                Section("现金") { numberField("当前余额", text: $draft.cash, unit: "元") }
+                Section("现金") { numberField("当前余额", text: $draft.cash, unit: "元") }.listRowBackground(AppTheme.cardBackground)
             }
             if wealthScope == nil {
             Section("股票") {
                 LabeledContent("已归属价值", value: ProfileRules.money(stockValue))
                 Text("股票与归属计划请在当前财富详情中单独管理。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
+            }.listRowBackground(AppTheme.cardBackground)
             }
             if wealthScope != .cash {
             Section {
@@ -170,13 +140,13 @@ struct ProfileEditor: View {
                 }
             } header: { Text("理财") } footer: {
                 Text("从登记日零点起估算，一年按 365 天。单利按本金计息；复利每年复投，未满一年按时间比例折算。未设置日期或收益率时保留本金。修改配置会从登记日重新计算。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 if wealthScope == nil { LabeledContent("合计", value: ProfileRules.money(wealthTotal)) }
             } footer: {
                 Text("未填写的项目不参与汇总，0 表示没有。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
     }
 
@@ -190,7 +160,7 @@ struct ProfileEditor: View {
                     #if os(iOS)
                     .keyboardType(allowsNegative ? .numbersAndPunctuation : .decimalPad)
                     #endif
-                Text(unit).foregroundStyle(.secondary).fixedSize()
+                Text(unit).foregroundStyle(AppTheme.secondaryText).fixedSize()
             }
         } label: { Text(title) }
     }

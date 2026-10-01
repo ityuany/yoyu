@@ -20,14 +20,14 @@ struct EmploymentWorkDetail: View {
                     LabeledContent("累计应工作天数", value: "\(summary.days.formatted()) 天")
                     LabeledContent("平均日薪（税前估算）", value: summary.averageDailyCents.map { ProfileRules.money($0) } ?? (summary.days == 0 ? "暂无应工作日" : "薪资资料待补全"))
                     Text("按任职期间累计税前工资 ÷ 同期应工作天数计算，包含入离职当天，当前任职统计至今天；暂不含年终奖。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
                     if summary.missingHolidayYears {
                         Text("部分年份节假日资料未收录，对应天数按每周工作日估算。")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(AppTheme.secondaryText)
                     }
                 }
                 Button("编辑工作安排") { editing = true }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
         .neutralPageBackground()
         .navigationTitle("工作安排")

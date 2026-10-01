@@ -23,12 +23,4 @@ extension UserProfile {
         return stockCents
     }
 
-    /// 已登记财富总额，单位为分。
-    var totalWealth: Int64? {
-        guard cashCents != nil || stockValueCents != nil || investmentCents != nil else { return nil }
-        // 未填写的资产不等同于错误，汇总时按 0 处理；三个项目都未填才不显示总额。
-        let investment = investmentValue(on: Date())
-        if investmentCents != nil && investment == nil { return nil }
-        return (cashCents ?? 0) + (stockValueCents ?? 0) + (investment ?? 0)
-    }
 }

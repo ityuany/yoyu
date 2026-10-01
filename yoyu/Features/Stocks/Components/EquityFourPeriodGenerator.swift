@@ -20,10 +20,10 @@ struct EquityFourPeriodGenerator: View {
             Text("每年").tag(12)
         }
         Text("按总量的 25% 拆分，前三期向下取整，余数放入第 4 期。")
-            .font(.caption).foregroundStyle(.secondary)
+            .font(.caption).foregroundStyle(AppTheme.secondaryText)
         if plan.isEmpty {
             Text("请输入至少 4 股的整数总量；零碎股可使用逐笔添加。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
         } else {
             ForEach(Array(plan.enumerated()), id: \.offset) { index, entry in
                 LabeledContent("第 \(index + 1) 期", value: "\(ProfileRules.input(entry.shares)) 股")

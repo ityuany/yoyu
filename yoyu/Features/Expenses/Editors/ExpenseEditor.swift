@@ -42,13 +42,13 @@ struct ExpenseEditor: View {
                         Text("每期金额")
                         TextField("0.00", text: $amount).keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing).monospacedDigit().accessibilityLabel("每期金额")
-                        Text("元").foregroundStyle(.secondary)
+                        Text("元").foregroundStyle(AppTheme.secondaryText)
                     }
                     Picker("金额类型", selection: $draft.estimated) {
                         Text("预估金额").tag(true)
                         Text("固定金额").tag(false)
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Picker("重复周期", selection: $draft.frequency) {
                         ForEach(ExpenseFrequency.allCases) { Text($0.title).tag($0) }
@@ -70,9 +70,9 @@ struct ExpenseEditor: View {
                             }
                         ), displayedComponents: .date)
                         Text(ExpenseRules.scheduleLabel(draft))
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                         Text(ExpenseRules.paymentPreview(plan).isEmpty ? "当前起止范围内没有扣款，请调整日期。" : "接下来：" + ExpenseRules.paymentPreview(plan).map { ExpenseRules.dateLabel($0) }.joined(separator: "、"))
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(AppTheme.secondaryText)
                     }
                     Toggle("指定结束日期", isOn: $limited)
                     if limited { DatePicker("结束日期", selection: $end, displayedComponents: .date) }
@@ -80,7 +80,7 @@ struct ExpenseEditor: View {
                     Text(draft.spreadAcrossMonth
                          ? "按月估算，首尾不足整月时按有效天数折算，包含开始与结束当天。"
                          : "从首次扣款日起重复，每季度指每隔 3 个月。遇到没有该日期的月份取月末，之后恢复原日期；结束日期当天仍计入。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Toggle("工作中断期间暂停", isOn: Binding(
                         get: { draft.pausesDuringWorkBreak == true },
@@ -94,8 +94,8 @@ struct ExpenseEditor: View {
                             Text(draft.spreadAcrossMonth ? "暂停天数不计入月度金额。" : "扣款日落在暂停期间时跳过该期，恢复后不补扣，也不改变原扣款日。")
                         }
                     }
-                }
-                Section("备注") { TextField("选填", text: $draft.note, axis: .vertical).lineLimit(2...4) }
+                }.listRowBackground(AppTheme.cardBackground)
+                Section("备注") { TextField("选填", text: $draft.note, axis: .vertical).lineLimit(2...4) }.listRowBackground(AppTheme.cardBackground)
                 if !LiabilityRules.accounts(liabilities).isEmpty {
                     Section {
                         Picker("已包含在负债还款中", selection: $draft.coveredByLiabilityID) {
@@ -106,19 +106,19 @@ struct ExpenseEditor: View {
                         }
                     } footer: {
                         Text("若这笔开支已经包含在所选负债的还款计划中，汇总和预测只计负债还款。删除该负债后，这笔开支会恢复单独计入。")
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
                 if error == nil {
                     Section {
                         LabeledContent("\(ExpenseRules.monthLabel(draft.start))预计", value: isCoveredByLiability ? "已计入负债" : ProfileRules.money(ExpenseRules.amount(plan, in: draft.start)))
                         Text("\(draft.frequency.title) \(ProfileRules.money(plan.amount)) · \(draft.estimated ? "预估" : "固定")")
-                            .foregroundStyle(.secondary)
-                        Text(ExpenseRules.period(plan)).font(.subheadline).foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
+                        Text(ExpenseRules.period(plan)).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     } header: { Text("计划预览") } footer: {
                         Text("保存计划不会扣减现金，也不会生成实际消费记录。房贷与信用卡还款请在负债中管理。")
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 } else if let error {
-                    Section { Text(error).font(.footnote).foregroundStyle(.secondary) }
+                    Section { Text(error).font(.footnote).foregroundStyle(AppTheme.secondaryText) }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()

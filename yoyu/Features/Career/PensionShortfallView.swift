@@ -88,7 +88,7 @@ struct PensionShortfallView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("疑似少缴 · 个人部分")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                     Text(ProfileRules.money(companies.reduce(Int64.zero) { $0 + $1.personalShortfallCents }))
                         .font(.largeTitle.weight(.semibold))
                         .monospacedDigit()
@@ -98,14 +98,14 @@ struct PensionShortfallView: View {
                         summaryNumber("待补资料", value: "\(missingMonths) 个月")
                     }
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if companies.isEmpty {
                 ContentUnavailableView("暂无可计算的任职", systemImage: "building.2", description: Text("请先完善企业履历和养老保险缴费记录。"))
             }
             Section {
                 if yearlyAmounts.isEmpty {
                     Text("补全可比较的月份后显示年度变化。")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                 } else {
                     Picker("时间范围", selection: $showsAllYears) {
                         Text("全部").tag(true)
@@ -122,7 +122,7 @@ struct PensionShortfallView: View {
                     } else {
                         Text("按年汇总疑似少缴的个人部分，点选柱形查看金额。")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                 }
             } header: {
@@ -138,7 +138,7 @@ struct PensionShortfallView: View {
                         .accessibilityIdentifier("shortfall.expandTrend")
                     }
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 Picker("排行方式", selection: $ranking) {
                     ForEach(ShortfallRanking.allCases) { option in Text(option.rawValue).tag(option) }
@@ -167,12 +167,12 @@ struct PensionShortfallView: View {
                 }
             } footer: {
                 Text("月均按已比较月份计算；差额率为累计基数差 ÷ 累计应缴基数。有差额月数只作辅助信息，不单独排名。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("计算口径") {
                 Text("按工资、官方基数范围及企业中配置的缴纳基数估算至上月。首年采用入职月薪，后续年度采用上一年已登记月薪和年终奖的月平均值；差额按配置的个人比例计算。缺少工资、基数或比例的月份不计金额。此数不是已核实欠缴额，也不是未来少领的养老金。")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+                    .foregroundStyle(AppTheme.secondaryText)
+            }.listRowBackground(AppTheme.cardBackground)
         }
         .neutralPageBackground()
         .navigationTitle("疑似少缴")
@@ -186,7 +186,7 @@ struct PensionShortfallView: View {
 
     private func summaryNumber(_ title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.caption).foregroundStyle(AppTheme.secondaryText)
             Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -196,7 +196,7 @@ struct PensionShortfallView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(position).")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondaryText)
                     .monospacedDigit()
                 Text(company.job.displayName)
                     .font(.headline)
@@ -216,7 +216,7 @@ struct PensionShortfallView: View {
             .frame(height: 5)
             Text("有差额 \(company.positiveCount) / 已比较 \(company.comparableCount) 个月 · 待补 \(company.missingCount) 个月")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.secondaryText)
         }
         .padding(.vertical, 3)
     }
@@ -241,7 +241,7 @@ private struct ShortfallYearChart: View {
                     x: .value("年份", String(item.year)),
                     y: .value("金额（元）", Double(item.amountCents) / 100)
                 )
-                .foregroundStyle(String(item.year) == selectedYear ? .orange : DashboardStyle.accent)
+                .foregroundStyle(String(item.year) == selectedYear ? AppTheme.warning : DashboardStyle.accent)
                 .accessibilityLabel("\(item.year) 年，\(ProfileRules.money(item.amountCents))")
             }
             .chartXAxis(.hidden)
@@ -253,7 +253,7 @@ private struct ShortfallYearChart: View {
                 }
             }
             .font(.caption2)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AppTheme.secondaryText)
         }
         .accessibilityLabel("年度疑似少缴趋势")
     }
@@ -287,13 +287,13 @@ private struct ShortfallTrendFullscreen: View {
                         .font(.subheadline).monospacedDigit()
                 } else {
                     Text("按年汇总疑似少缴的个人部分 · 单位：元")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
             }
             .padding(24)
             .frame(width: rotated ? proxy.size.height : proxy.size.width,
                    height: rotated ? proxy.size.width : proxy.size.height)
-            .background(Color(uiColor: .systemBackground))
+            .background(AppTheme.pageBackground)
             .rotationEffect(.degrees(rotated ? 90 : 0))
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
@@ -328,7 +328,7 @@ private struct ShortfallRankingFullscreen: View {
                             HStack(spacing: 12) {
                                 Text("\(index + 1).")
                                     .frame(width: 25, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AppTheme.secondaryText)
                                 Text(company.job.displayName)
                                     .frame(width: 150, alignment: .leading)
                                     .lineLimit(1)
@@ -345,7 +345,7 @@ private struct ShortfallRankingFullscreen: View {
                                     .frame(width: 110, alignment: .trailing)
                                 Text("\(company.positiveCount)/\(company.comparableCount) 月")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AppTheme.secondaryText)
                                     .frame(width: 80, alignment: .trailing)
                             }
                         }
@@ -356,7 +356,7 @@ private struct ShortfallRankingFullscreen: View {
             .padding(24)
             .frame(width: rotated ? proxy.size.height : proxy.size.width,
                    height: rotated ? proxy.size.width : proxy.size.height)
-            .background(Color(uiColor: .systemBackground))
+            .background(AppTheme.pageBackground)
             .rotationEffect(.degrees(rotated ? 90 : 0))
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
@@ -398,10 +398,10 @@ struct PensionMonthlyPaymentsView: View {
                         }
                         Text(currentMonth.amount == nil ? "待补缴纳基数或个人比例" : "本月进行中 · 按当前配置推算")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                     .monospacedDigit()
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if completed.isEmpty && currentMonth == nil {
                 ContentUnavailableView("暂无逐月数据", systemImage: "calendar", description: Text("请先补全企业任职月份和养老保险缴纳配置。"))
@@ -420,14 +420,14 @@ struct PensionMonthlyPaymentsView: View {
                                 Spacer()
                                 if let expected = item.expectedPaymentCents {
                                     Text("参考 \(ProfileRules.money(expected))")
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(AppTheme.secondaryText)
                                 }
                             }
                             .font(.subheadline)
                             if let base = item.configuredBaseCents, let expected = item.expectedBaseCents {
                                 Text("配置基数 \(ProfileRules.money(base)) · 参考基数 \(ProfileRules.money(expected))")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AppTheme.secondaryText)
                             }
                         }
                         .monospacedDigit()
@@ -437,7 +437,7 @@ struct PensionMonthlyPaymentsView: View {
                     Text("已结束月份")
                 } footer: {
                     Text("每月金额按当月配置基数 × 个人比例推算；对比状态按配置基数与工资经官方上下限约束后的参考基数判断。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()
@@ -451,9 +451,9 @@ struct PensionMonthlyPaymentsView: View {
 
     private func statusColor(_ comparison: PensionShortfallMonth.Comparison?) -> Color {
         switch comparison {
-        case .matches: .green
-        case .above: .blue
-        case .below: .orange
+        case .matches: AppTheme.success
+        case .above: AppTheme.accent
+        case .below: AppTheme.warning
         case nil: .secondary
         }
     }
@@ -469,7 +469,7 @@ struct PensionShortfallCompanyView: View {
                 LabeledContent("少缴月份", value: "\(company.positiveCount) 个月")
                 LabeledContent("已比较", value: "\(company.comparableCount) 个月")
                 LabeledContent("待补资料", value: "\(company.missingCount) 个月")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if company.shortfallMonths.isEmpty {
                 ContentUnavailableView(
                     "暂无疑似少缴月份",
@@ -488,17 +488,17 @@ struct PensionShortfallCompanyView: View {
                                 Spacer()
                                 Text(ProfileRules.money(item.personalShortfallCents))
                                     .font(.headline)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(AppTheme.warning)
                             }
                             Text("应缴基数 \(ProfileRules.money(item.expectedBaseCents)) · 配置基数 \(ProfileRules.money(item.configuredBaseCents))")
                                 .font(.subheadline)
                             Text("基数差 \(ProfileRules.money(item.shortfallBaseCents)) · 生效记录沿用 · \(item.limitEvidence?.symbol ?? "")\(item.limitEvidence?.title ?? "")")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                         .padding(.vertical, 3)
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()

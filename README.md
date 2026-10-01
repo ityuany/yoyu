@@ -17,9 +17,9 @@
 | `yoyuUITests` | XCTest 界面交互测试 |
 | `design` | 页面设计参考 |
 
-`Models/AppModelSchema.swift` 是持久化结构总览。`Models` 按 Profile、Career、Contributions、Stocks、Liabilities、Expenses、Forecast 分组，包含全部数据库字段和关系。目录及文件拆分保持实体类型名称、字段、关系和数据库位置一致。
+`Models/AppModelSchema.swift` 是持久化结构总览。`Models` 按 Profile、Career、Contributions、Stocks、Liabilities、Expenses、Analysis 分组，包含全部数据库字段和关系。目录及文件拆分保持实体类型名称、字段、关系和数据库位置一致。
 
-`Features/Today`、`Wealth`、`Forecast`、`Profile` 对应四个主菜单入口；Career、Stocks、Liabilities、Expenses、Investments 承载独立业务页面，可由多个菜单进入。页面较多的功能使用 `Editors`、`Components`、`State` 子目录，按实际职责归类。
+`Features/Today`、`Wealth`、`Analysis`、`Profile` 对应四个主菜单入口；Career、Stocks、Liabilities、Expenses、Investments 承载独立业务页面，可由多个菜单进入。页面较多的功能使用 `Editors`、`Components`、`State` 子目录，按实际职责归类。
 
 ## 验证
 

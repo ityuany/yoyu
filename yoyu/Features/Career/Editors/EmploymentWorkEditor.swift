@@ -29,18 +29,18 @@ struct EmploymentWorkEditor: View {
                     ForEach(Weekday.displayOrder) { day in
                         Toggle(day.name, isOn: Binding(get: { week.contains(day) }, set: { week.set(day, isWorkday: $0) }))
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Toggle("遵循法定节假日及调休", isOn: $followsHolidays)
                 } footer: {
                     Text("开启后，放假日不计为工作日，调休补班日计为工作日。当前收录 2026 年安排，其他年份按每周工作日估算。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section("工作时间") {
                     DatePicker("上班时间", selection: $start, displayedComponents: .hourAndMinute)
                     DatePicker("下班时间", selection: $end, displayedComponents: .hourAndMinute)
-                    if minutes(end) < minutes(start) { Text("下班时间为次日").foregroundStyle(.secondary) }
-                    if minutes(end) == minutes(start) { Text("上下班时间不能相同。").foregroundStyle(.red) }
-                }
+                    if minutes(end) < minutes(start) { Text("下班时间为次日").foregroundStyle(AppTheme.secondaryText) }
+                    if minutes(end) == minutes(start) { Text("上下班时间不能相同。").foregroundStyle(AppTheme.error) }
+                }.listRowBackground(AppTheme.cardBackground)
             }.neutralPageBackground()
             .environment(\.timeZone, ProfileRules.calendar.timeZone)
             .navigationTitle("工作安排")

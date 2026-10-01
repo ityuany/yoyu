@@ -43,11 +43,11 @@ struct EquityGrantEditor: View {
         NavigationStack {
             Form {
                 Section("授予信息") {
-                    Text(companyName).foregroundStyle(.secondary)
+                    Text(companyName).foregroundStyle(AppTheme.secondaryText)
                     TextField("批次名称", text: $name)
                     DatePicker("授予日期", selection: $date, displayedComponents: .date)
                     equityField("授予总量（股）", text: $quantity)
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Picker("录入方式", selection: $mode) { Text("逐笔添加").tag(0); Text("按周期生成").tag(1); if existing == nil { Text("总量分 4 期").tag(2) } }.pickerStyle(.segmented)
                     if mode == 1 {
@@ -76,14 +76,14 @@ struct EquityGrantEditor: View {
                         }.padding(.vertical, 8)
                     }
                     Button("添加一期", systemImage: "plus") { entries.append(EquityInstallmentDraft(date: max(date, Date()))) }
-                } header: { Text("归属安排") } footer: { Text("各期数量不得超过授予总量。取消本期会保留记录；未安排的股数计为未归属，可稍后补全计划。") }
+                } header: { Text("归属安排") } footer: { Text("各期数量不得超过授予总量。取消本期会保留记录；未安排的股数计为未归属，可稍后补全计划。") }.listRowBackground(AppTheme.cardBackground)
                 if let draft, EquityRules.error(draft) == nil {
                     Section {
                         LabeledContent("已安排", value: "\(ProfileRules.input(draft.shares - EquityRules.unallocated(draft))) 股")
                         LabeledContent("待安排", value: "\(ProfileRules.input(EquityRules.unallocated(draft))) 股")
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
-                if let validation { Text(validation).foregroundStyle(.secondary) }
+                if let validation { Text(validation).foregroundStyle(AppTheme.secondaryText) }
             }.neutralPageBackground().navigationTitle(existing == nil ? "添加授予" : "编辑授予")
             .environment(\.timeZone, ProfileRules.calendar.timeZone)
             .toolbar {

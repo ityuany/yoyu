@@ -17,16 +17,16 @@ struct StockPortfolioView: View {
         List {
             Section {
                 if !holdings.isEmpty && StockRules.needsLegacyReview(holdings, profile: profile) {
-                    Text("请先核对旧股票记录，再查看汇总价值。").font(.caption).foregroundStyle(.secondary)
+                    Text("请先核对旧股票记录，再查看汇总价值。").font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
                 if holdings.contains(where: { !$0.priceIsConfigured }) {
-                    Text("部分公司待设置股价，汇总金额待补全。").font(.caption).foregroundStyle(.secondary)
+                    Text("部分公司待设置股价，汇总金额待补全。").font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
                 LabeledContent("已归属价值", value: ProfileRules.money(StockRules.portfolio(holdings, profile: profile, on: clock.now)))
                 LabeledContent("未归属价值", value: ProfileRules.money(StockRules.portfolio(holdings, profile: profile, on: clock.now, unvested: true)))
             } header: { Text("人民币参考价值") } footer: {
                 Text("当前财富仅计入已归属部分。未来归属按当前手动股价估算；已归属不代表可以立即出售。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if !holdings.isEmpty {
                 Section("公司") {
                     ForEach(StockRules.holdings(holdings)) { holding in
@@ -34,12 +34,12 @@ struct StockPortfolioView: View {
                             Text(jobs.first { $0.id == holding.employmentID }?.displayName ?? holding.name)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if !holdings.isEmpty {
                 Section("未来股票归属") {
                     VestingTimelineSections(holdings: holdings, now: clock.now, selectedDay: $selectedDay, showUnallocated: $showUnallocated)
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if let profile, StockRules.needsLegacyReview(holdings, profile: profile) {
                 Section {
@@ -47,12 +47,12 @@ struct StockPortfolioView: View {
                     Button("核对旧股票记录") { reviewingLegacy = true }
                 } header: { Text("一次性核对") } footer: {
                     Text("旧记录尚未关联公司。请核对是否已包含在现有持股中；新旧记录同时存在时，汇总暂不计算，避免重复。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if holdings.isEmpty && StockRules.legacy(profile) == nil {
                 ContentUnavailableView("记录你的股票激励", systemImage: "chart.line.uptrend.xyaxis", description: Text("选择任职公司，填写授予批次和归属计划。股价在公司详情统一设置。"))
             }
-            Section { Button("添加公司股票", systemImage: "plus") { adding = true } }
+            Section { Button("添加公司股票", systemImage: "plus") { adding = true } }.listRowBackground(AppTheme.cardBackground)
         }.neutralPageBackground()
         .listSectionSpacing(16)
         .navigationDestination(item: $selectedDay) { date in VestingSourcesView(date: date) }
@@ -101,8 +101,8 @@ private struct LegacyStockReview: View {
                         LabeledContent("已归属持股", value: "\(ProfileRules.input(shares)) 股")
                     }
                     Text("请先确认这份旧记录是否已包含在现有公司持股中。旧数据会保留备查，核对完成后不再单独计入。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
                 if !holdings.isEmpty {
                     Section {
                         Picker("对应股票", selection: $selectedID) {
@@ -124,11 +124,11 @@ private struct LegacyStockReview: View {
                         }
                     } header: { Text("与现有持股核对") } footer: {
                         Text("如果只录入了一部分，请先补全公司记录的期初持股或授予计划，再回来完成核对。不会自动相加或覆盖持股。")
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
                 Section {
                     Button("这是尚未录入的另一份持股") { importing = true }
-                } footer: { Text("将旧持股迁入公司股票。已有股票记录的公司请使用上面的核对流程。") }
+                } footer: { Text("将旧持股迁入公司股票。已有股票记录的公司请使用上面的核对流程。") }.listRowBackground(AppTheme.cardBackground)
             }.neutralPageBackground()
             .navigationTitle("核对旧股票记录")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("稍后处理") { dismiss() } } }
@@ -139,7 +139,7 @@ private struct LegacyStockReview: View {
             }
             .sheet(isPresented: $importing, onDismiss: {
                 if !StockRules.needsLegacyReview(holdings, profile: profile) { dismiss() }
-            }) { StockEditor(holding: nil, legacy: profile) }
+            }) { LegacyStockImportEditor(legacy: profile) }
             .saveErrorAlert($error)
         }
     }

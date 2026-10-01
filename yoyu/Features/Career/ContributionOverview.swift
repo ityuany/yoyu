@@ -36,11 +36,11 @@ struct ContributionOverview: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("累计缴纳").font(.subheadline).foregroundStyle(.secondary)
+                    Text("累计缴纳").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     Text(estimate.map { ProfileRules.money($0.amountCents) } ?? "待补全配置")
                         .font(.largeTitle.weight(.semibold)).monospacedDigit()
                     Text("\(job.displayName) · 可计算 \(estimate?.coveredMonths ?? 0) 个月")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                 }
                 .padding(.vertical, 8)
                 if let shortfall = pensionShortfall {
@@ -76,21 +76,21 @@ struct ContributionOverview: View {
                 Text(kind == .pension
                      ? "累计缴纳按配置推算；疑似少缴按工资、官方基数范围与配置基数对照，计算至上月。"
                      : "累计缴纳按配置推算；疑似少缴按工资、官方基数范围与配置基数对照，计算至上月。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section(job.isCurrent(on: clock.now) ? "当前缴纳配置" : "离职时缴纳配置") {
                 if let current {
                     ContributionKindDetails(kind: kind, base: kind.base(current), rate: kind.rate(current))
                     LabeledContent("生效月份", value: CareerRules.monthLabel(current.effectiveMonth))
                 } else {
                     Text("暂无缴纳配置")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if ordered.isEmpty {
                 Section {
                     Text("还没有基数调整记录，点右上角添加。")
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
             } else {
                 Section {
                     ForEach(Array(ordered.enumerated()), id: \.element.id) { index, record in
@@ -110,7 +110,7 @@ struct ContributionOverview: View {
                     Text("缴纳基数时间轴")
                 } footer: {
                     Text("每条从生效月份起沿用，直到下一次调整；点选阶段可修改或删除。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()
@@ -173,7 +173,7 @@ private struct ContributionTimelineRow: View {
                     .frame(height: 44)
                     Text("个人比例 \(rate)")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                         .padding(.bottom, 12)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

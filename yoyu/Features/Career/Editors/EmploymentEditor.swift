@@ -51,7 +51,7 @@ struct EmploymentEditor: View {
                         }
                         .accessibilityIdentifier("employment.endMonth")
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Picker("每月发薪日", selection: $salaryPaymentDay) {
                         ForEach(1...31, id: \.self) { day in
@@ -62,12 +62,12 @@ struct EmploymentEditor: View {
                     .accessibilityIdentifier("employment.payday")
                 } footer: {
                     Text("适用于这家公司的所有薪资阶段。遇到当月没有的日期，按月末计算。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Text("保存任职经历后，可在详情中录入薪资阶段和工作安排。")
-                        .foregroundStyle(.secondary)
-                }
-                if let validation { Section { Text(validation).foregroundStyle(.red) } }
+                        .foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
+                if let validation { Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground) }
             }.neutralPageBackground()
             .environment(\.calendar, ProfileRules.calendar)
             .environment(\.timeZone, ProfileRules.calendar.timeZone)

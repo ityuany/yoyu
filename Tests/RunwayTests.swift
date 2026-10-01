@@ -97,6 +97,19 @@ import SwiftData
         stage.salaryCents = 200_00
         let stable = await RunwayEngine.calculate(plan: employed, profile: p, stocks: [], jobs: [job], stages: [stage], expenses: [record], liabilities: [], today: today, years: 2)
         precondition(!stable.sustainable && stable.failure == nil && stable.end == date(2028, 1, 1))
+        // Analysis can estimate future severance without changing today's wealth or expense plan.
+        let wealthBefore = SeveranceScenario(jobs: [job], stages: [stage], now: today).estimate?.amountCents
+        let expenseBefore = ExpectedExpenseRules.total(expenses: [record], liabilities: [], in: today)
+        let futureLoss = RunwayPlan(mode: .indefinite, lossDate: date(2027, 1, 1))
+        let futureCompensation = RunwayEngine.compensation(plan: futureLoss, jobs: [job], stages: [stage], today: today)
+        precondition(wealthBefore != nil && futureCompensation != wealthBefore)
+        let scenarioContainer = try ModelContainer(for: RunwaySettings.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        for hypothesis in [futureLoss, employed, RunwayPlan(mode: .temporary, lossDate: today, returnDate: date(2026, 2, 1), salary: 300_00)] {
+            let saved = try scenarioContainer.mainContext.fetch(FetchDescriptor<RunwaySettings>())
+            try RunwayStore.save(hypothesis, records: saved, context: scenarioContainer.mainContext)
+            precondition(SeveranceScenario(jobs: [job], stages: [stage], now: today).estimate?.amountCents == wealthBefore)
+            precondition(ExpectedExpenseRules.total(expenses: [record], liabilities: [], in: today) == expenseBefore)
+        }
         // Independent persistence; data survives reopening.
 
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -9,12 +9,12 @@ import SwiftData
         WindowGroup {
             #if DEBUG
             if let scenario = AppTestScenario.current {
-                scenario.content
+                scenario.content.appTheme()
             } else {
-                appContent
+                appContent.appTheme()
             }
             #else
-            appContent
+            appContent.appTheme()
             #endif
         }
     }

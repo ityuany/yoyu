@@ -49,7 +49,7 @@ struct InvestmentProjectionView: View {
                     detailsCard
                 }
                 Text("假设年化收益率保持不变，从今天起测算，不含追加投入、取出及税费。单利收益不再投入；复利每满一年复投，剩余月份按比例计息。负收益最多损失本金。结果仅为情景测算。")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
                     .padding(.horizontal, 4)
             }
             .padding(DashboardStyle.pageInset)
@@ -86,11 +86,11 @@ struct InvestmentProjectionView: View {
                 }.font(.subheadline)
                 if mode == .compound, let simple = result(at: months, mode: .simple) {
                     Text("较单利收益差额 \(ProfileRules.money(projection.earningsCents - simple.earningsCents))")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
             } else {
                 Text("待完善测算条件").font(.title3.weight(.semibold))
-                Text(validation).font(.subheadline).foregroundStyle(.secondary)
+                Text(validation).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
             }
         }.dashboardCard(highlighted: true)
     }
@@ -102,7 +102,7 @@ struct InvestmentProjectionView: View {
             Divider()
             inputRow("年化收益率", text: $annualRate, unit: "%")
             Text("仅用于本次测算，不修改已保存的理财配置。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             Divider()
             Text("预测期限").font(.subheadline.weight(.medium))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
@@ -114,8 +114,8 @@ struct InvestmentProjectionView: View {
                         Text(month == 0 ? "自定义" : InvestmentProjection.duration(month))
                             .font(.subheadline.weight(selectedMonths == month ? .semibold : .regular))
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .foregroundStyle(selectedMonths == month ? Color(uiColor: .systemBackground) : Color.primary)
-                            .background(selectedMonths == month ? DashboardStyle.accent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(selectedMonths == month ? AppTheme.onAccent : AppTheme.primaryText)
+                            .background(selectedMonths == month ? DashboardStyle.accent : AppTheme.insetBackground, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(selectedMonths == month ? [.isSelected] : [])
@@ -136,7 +136,7 @@ struct InvestmentProjectionView: View {
                 ForEach(InvestmentInterestMode.allCases) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented)
             Text(mode == .simple ? "收益不再投入，按初始本金计算。" : "每满一年将收益计入本金，剩余月份按比例计息。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
         }.dashboardCard()
     }
 
@@ -148,7 +148,7 @@ struct InvestmentProjectionView: View {
                 .keyboardType(title == "本金" ? .decimalPad : .numbersAndPunctuation)
                 .multilineTextAlignment(.trailing).focused($isEditing)
                 .accessibilityLabel(title)
-            Text(unit).foregroundStyle(.secondary)
+            Text(unit).foregroundStyle(AppTheme.secondaryText)
         }.font(.subheadline)
     }
 
@@ -177,7 +177,7 @@ struct InvestmentProjectionView: View {
                 Text("期限")
                 Spacer()
                 Text("累计收益 / 本息合计")
-            }.font(.caption).foregroundStyle(.secondary)
+            }.font(.caption).foregroundStyle(AppTheme.secondaryText)
             ForEach(detailMonths, id: \.self) { month in
                 if let value = result(at: month) {
                     HStack {
@@ -185,7 +185,7 @@ struct InvestmentProjectionView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text(ProfileRules.money(value.earningsCents)).foregroundStyle(DashboardStyle.investment)
-                            Text(ProfileRules.money(value.totalCents)).foregroundStyle(.secondary)
+                            Text(ProfileRules.money(value.totalCents)).foregroundStyle(AppTheme.secondaryText)
                         }.font(.subheadline).monospacedDigit()
                     }
                     if month != detailMonths.last { Divider() }

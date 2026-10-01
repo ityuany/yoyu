@@ -34,7 +34,7 @@ struct SeveranceSettings: Codable, Equatable {
     var tripleAverageSalaryCents: Int64?
 
     // 保留所选预测方案；旧手动基数与年限仍统一从职业履历推算。
-    /// 是否自动推进已还期数，空值保留旧版手动进度语义。
+    /// 使用当前支持的赔偿方案，清除旧手动基数与年限，并保留三倍社平工资上限。
     var automatic: Self {
         var result = Self(plan: SeverancePlan.selectable.contains(plan) ? plan : .nPlusOne)
         result.tripleAverageSalaryCents = tripleAverageSalaryCents

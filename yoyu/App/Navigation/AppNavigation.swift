@@ -10,7 +10,7 @@ enum WealthDestination: Hashable {
 @Observable final class AppNavigation {
     var selectedTab: AppTab = {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--forecast") { return .forecast }
+        if ProcessInfo.processInfo.arguments.contains("--analysis") { return .analysis }
         if ProcessInfo.processInfo.arguments.contains("--wealth") { return .wealth }
         if ProcessInfo.processInfo.arguments.contains("--profile") { return .profile }
         #endif

@@ -22,10 +22,10 @@ struct VestingTimelineSections: View {
                             TimelineAmountRow(title: day.date.formatted(Date.FormatStyle(date: .omitted, time: .omitted, locale: Locale(identifier: "zh_CN"), calendar: ProfileRules.calendar, timeZone: ProfileRules.calendar.timeZone).month(.twoDigits).day(.twoDigits)), value: amount(day.yuan))
                                 .font(.subheadline)
                             Text("\(day.id == schedule.days.first?.id ? "下一次 · " : "")\(day.companyCount) 家公司 · \(day.batchCount) 笔授予")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(AppTheme.secondaryText)
                         }
                         .modifier(TimelineRowStyle(highlighted: day.id == schedule.days.first?.id))
-                        .foregroundStyle(.primary).contentShape(Rectangle())
+                        .foregroundStyle(AppTheme.primaryText).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -38,24 +38,24 @@ struct VestingTimelineSections: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("待安排归属")
-                            Text("\(schedule.unallocated.count) 笔授予尚有股数未安排日期").font(.caption).foregroundStyle(.secondary)
+                            Text("\(schedule.unallocated.count) 笔授予尚有股数未安排日期").font(.caption).foregroundStyle(AppTheme.secondaryText)
                         }
                         Spacer()
                         Text(amount(VestingTimeline.sum(schedule.unallocated.map(\.yuan)))).font(.subheadline)
                         Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                     }
-                }.padding(.vertical, 6).foregroundStyle(.primary).contentShape(Rectangle())
+                }.padding(.vertical, 6).foregroundStyle(AppTheme.primaryText).contentShape(Rectangle())
             }.buttonStyle(.plain).listRowSeparator(.hidden)
         }
         if schedule.days.isEmpty {
-            Text("暂无已安排的未来归属").foregroundStyle(.secondary).listRowSeparator(.hidden)
+            Text("暂无已安排的未来归属").foregroundStyle(AppTheme.secondaryText).listRowSeparator(.hidden)
         }
         if schedule.invalidCompanies > 0 {
             Text("\(schedule.invalidCompanies) 家公司的授予资料需检查，暂未列入时间线。")
-                .font(.caption).foregroundStyle(.secondary).listRowSeparator(.hidden)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText).listRowSeparator(.hidden)
         }
         Text("金额按当前股价与汇率折算人民币；全年金额包含该年全部已安排归属。")
-            .font(.caption).foregroundStyle(.secondary).padding(.vertical, 8).listRowSeparator(.hidden)
+            .font(.caption).foregroundStyle(AppTheme.secondaryText).padding(.vertical, 8).listRowSeparator(.hidden)
     }
 
 }
@@ -89,14 +89,14 @@ private struct TimelineRowStyle: ViewModifier {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
             Image(systemName: isYear ? "diamond.fill" : "circle.fill")
                 .font(.system(size: 8))
-                .foregroundStyle(highlighted ? DashboardStyle.accent : Color.secondary)
+                .foregroundStyle(highlighted ? DashboardStyle.accent : AppTheme.secondaryText)
                 .frame(width: trackWidth)
                 .accessibilityHidden(true)
             content
         }
         .padding(.vertical, rowInset)
         .background(alignment: .leading) {
-            Rectangle().fill(Color.secondary.opacity(0.18))
+            Rectangle().fill(AppTheme.secondaryText.opacity(0.18))
                 .frame(width: 1).padding(.leading, trackWidth / 2)
                 .accessibilityHidden(true).allowsHitTesting(false)
         }
@@ -116,7 +116,7 @@ struct VestingSourcesView: View {
         List {
             Section {
                 LabeledContent("人民币参考价值", value: VestingTimeline.sum(items.map(\.yuan)).map { ProfileRules.money($0) } ?? "待补全股价或汇率")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             ForEach(items) { item in
                 if let holding = StockRules.holdings(holdings).first(where: { $0.id == item.holdingID }) {
                     let name = jobs.first { $0.id == holding.employmentID }?.displayName ?? item.company
@@ -130,10 +130,10 @@ struct VestingSourcesView: View {
                                 LabeledContent("参考价值", value: item.yuan.map { ProfileRules.money($0) } ?? "待补全股价或汇率")
                             }.font(.subheadline).padding(.vertical, 4)
                         }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
             }
-            if items.isEmpty { Text("此处已无待归属记录").foregroundStyle(.secondary) }
+            if items.isEmpty { Text("此处已无待归属记录").foregroundStyle(AppTheme.secondaryText) }
         }.neutralPageBackground().navigationTitle(date.map { CareerRules.dateLabel($0) } ?? "待安排归属")
         .toolbar(.visible, for: .navigationBar)
     }

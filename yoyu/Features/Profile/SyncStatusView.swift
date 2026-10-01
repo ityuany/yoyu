@@ -17,7 +17,7 @@ struct SyncStatusView: View {
                     get: { sync.preference.enabled },
                     set: { requestedValue = $0; requestedAccount = sync.accountID; confirming = true }
                 ))
-                Text(sync.summary).foregroundStyle(.secondary)
+                Text(sync.summary).foregroundStyle(AppTheme.secondaryText)
                 if sync.preference.enabled && !sync.cloudEnabled {
                     if sync.accountNeedsApproval, sync.accountID != nil {
                         Button("确认使用当前 iCloud 账户") {
@@ -32,11 +32,11 @@ struct SyncStatusView: View {
                     }
                 } else if !sync.preference.enabled && sync.cloudEnabled {
                     Text("请完全关闭应用后重新打开。生效前，当前会话仍可能上传和下载数据。")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(AppTheme.warning)
                 }
             } header: { Text("此设备") } footer: {
                 Text("开关更改在下次启动生效。关闭不会删除本机或 iCloud 已有数据，也不会改变其他设备的设置。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 Label(sync.accountMessage, systemImage: "icloud")
                 LabeledContent("同步活动", value: sync.activityMessage)
@@ -45,7 +45,7 @@ struct SyncStatusView: View {
                 }
             } header: { Text("iCloud 同步") } footer: {
                 Text([sync.accountGuidance, sync.cloudEnabled ? sync.guidance : "本机数据可正常使用。开启同步后，本机和云端数据将参与合并。"].compactMap { $0 }.joined(separator: "\n"))
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if let issue = sync.lastIssue {
                 Section {
                     LabeledContent("失败环节", value: issue.phase)
@@ -58,7 +58,7 @@ struct SyncStatusView: View {
                     }
                 } header: { Text("最近一次同步问题") } footer: {
                     Text("保留本次运行中最近一次失败的详情，方便排查；后续传输成功也不会立即清除这条记录。账户已连接不代表数据传输已成功。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 Button {
@@ -73,7 +73,7 @@ struct SyncStatusView: View {
                 .disabled(sync.checking)
             } footer: {
                 Text("重新检查只更新账户状态，不会启动数据同步。使用不同的 Apple 账户前，请先关闭同步并重新启动应用。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
         .neutralPageBackground()
         .navigationTitle("iCloud 同步")

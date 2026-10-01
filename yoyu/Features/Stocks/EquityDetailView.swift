@@ -16,12 +16,12 @@ struct CompanyStockSummary: View {
                 LabeledContent("未归属", value: balance.map { "\(ProfileRules.input($0.unvestedShares)) 股" } ?? "待补全")
                 Button("前往财富查看股票") { navigation.openStocks(holdingID: holding.id) }
             } else {
-                Text("尚未关联股票记录").foregroundStyle(.secondary)
+                Text("尚未关联股票记录").foregroundStyle(AppTheme.secondaryText)
                 Button("前往财富管理股票") { navigation.openStocks() }
             }
         } header: { Text("股票激励") } footer: {
             Text("授予、归属计划和股价统一在「财富 → 股票」管理。")
-        }
+        }.listRowBackground(AppTheme.cardBackground)
     }
 }
 
@@ -55,7 +55,7 @@ struct EquityOverview: View {
                     }
                 }.padding(.vertical, 8)
                 LabeledContent("总参考价值", value: value.map { StockRules.money($0.total, currency: holding.currency) } ?? (holding.priceIsConfigured ? "待补全" : "待设置股价"))
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 HStack {
                     Text("股价").font(.headline)
@@ -64,7 +64,7 @@ struct EquityOverview: View {
                         .buttonStyle(.borderless)
                 }
                 LabeledContent("每股价格", value: holding.priceIsConfigured ? StockRules.money(holding.priceCents, currency: holding.currency) : "待设置股价")
-            } footer: { Text("本公司所有授予批次共用此价格。") }
+            } footer: { Text("本公司所有授予批次共用此价格。") }.listRowBackground(AppTheme.cardBackground)
             Section {
                 ForEach(grants) { grant in
                     NavigationLink {
@@ -75,11 +75,11 @@ struct EquityOverview: View {
                                 Text(grant.name).font(.headline)
                             }
                             Text("授予 \(ProfileRules.input(grant.shares)) 股 · 已归属 \(ProfileRules.input(EquityRules.vested(grant, on: clock.now))) 股")
-                                .font(.subheadline).foregroundStyle(.secondary)
+                                .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                             if EquityRules.unallocated(grant) > 0 {
-                                Text("\(ProfileRules.input(EquityRules.unallocated(grant))) 股计划待补全").font(.caption).foregroundStyle(.secondary)
+                                Text("\(ProfileRules.input(EquityRules.unallocated(grant))) 股计划待补全").font(.caption).foregroundStyle(AppTheme.secondaryText)
                             }
-                        }.foregroundStyle(.primary)
+                        }.foregroundStyle(AppTheme.primaryText)
                     }.buttonStyle(.plain)
                 }
             } header: {
@@ -88,21 +88,21 @@ struct EquityOverview: View {
                     Spacer()
                     Button("添加授予") { adding = true }.buttonStyle(.borderless)
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if let day = next.first?.1.date {
                 Section {
                     NavigationLink { nextInstallments } label: {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("下一次归属").font(.headline)
                             LabeledContent(CareerRules.dateLabel(day), value: "\(ProfileRules.input(next.reduce(0) { $0 + $1.1.shares })) 股")
-                            Text("来自 \(Set(next.map { $0.0.id }).count) 笔授予").font(.caption).foregroundStyle(.secondary)
-                        }.foregroundStyle(.primary)
+                            Text("来自 \(Set(next.map { $0.0.id }).count) 笔授予").font(.caption).foregroundStyle(AppTheme.secondaryText)
+                        }.foregroundStyle(AppTheme.primaryText)
                     }.buttonStyle(.plain)
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 Button("期初持股与持仓调整") { position = true }
-            } footer: { Text("按计划到期归属，未归属数量包括计划待补全部分。参考价值按手动股价计算，不含税费。") }
+            } footer: { Text("按计划到期归属，未归属数量包括计划待补全部分。参考价值按手动股价计算，不含税费。") }.listRowBackground(AppTheme.cardBackground)
         }.neutralPageBackground()
         .navigationTitle(holding.name)
         .sheet(isPresented: $price) { EquityPriceEditor(holding: holding) }
@@ -121,10 +121,10 @@ struct EquityOverview: View {
     }
     private func summaryAmount(_ title: String, cents: Int64?, shares: Int64?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.caption).foregroundStyle(AppTheme.secondaryText)
             Text(cents.map { StockRules.money($0, currency: holding.currency) } ?? (holding.priceIsConfigured ? "待补全" : "待设置股价"))
                 .font(.headline).monospacedDigit()
-            if let shares { Text("\(ProfileRules.input(shares)) 股").font(.caption).foregroundStyle(.secondary) }
+            if let shares { Text("\(ProfileRules.input(shares)) 股").font(.caption).foregroundStyle(AppTheme.secondaryText) }
         }
     }
 
@@ -141,25 +141,25 @@ struct EquityGrantDetail: View {
         List {
             if let grant {
                 Section("授予信息") {
-                    Text(companyName).foregroundStyle(.secondary)
+                    Text(companyName).foregroundStyle(AppTheme.secondaryText)
                     LabeledContent("授予日期", value: CareerRules.dateLabel(grant.date))
                     LabeledContent("授予总量", value: "\(ProfileRules.input(grant.shares)) 股")
                     LabeledContent("已归属", value: "\(ProfileRules.input(EquityRules.vested(grant, on: clock.now))) 股")
                     LabeledContent("未归属", value: "\(ProfileRules.input(grant.shares - EquityRules.vested(grant, on: clock.now) - grant.installments.filter(\.cancelled).reduce(0) { $0 + $1.shares })) 股")
                     LabeledContent("计划待补全", value: "\(ProfileRules.input(EquityRules.unallocated(grant))) 股")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     ForEach(grant.installments.sorted { $0.date < $1.date }) { entry in
                         Button { editing = true } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 LabeledContent(CareerRules.dateLabel(entry.date), value: "\(ProfileRules.input(entry.shares)) 股")
                                 Text(entry.cancelled ? "已取消" : entry.date <= ProfileRules.calendar.startOfDay(for: clock.now) ? "按计划已归属" : "待归属")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }.foregroundStyle(.primary)
+                                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
+                            }.foregroundStyle(AppTheme.primaryText)
                         }
                     }
                     Button("编辑归属计划") { editing = true }
-                } header: { Text("归属计划") } footer: { Text("已归属记录保留。实际延期可修改日期；取消的计划保留记录但不再计入持仓与未归属价值。") }
+                } header: { Text("归属计划") } footer: { Text("已归属记录保留。实际延期可修改日期；取消的计划保留记录但不再计入持仓与未归属价值。") }.listRowBackground(AppTheme.cardBackground)
             }
         }.neutralPageBackground().navigationTitle(grant?.name ?? "授予详情")
         .toolbar { ToolbarItem(placement: .primaryAction) { Button("编辑") { editing = true } } }

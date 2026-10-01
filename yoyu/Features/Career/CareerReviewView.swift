@@ -79,15 +79,15 @@ struct CareerReviewView: View {
                 } ?? "暂不可算")
             }
             Text("年均增长按首笔至最近记录末日的已录入月薪复合年化，包含空档期；不足一年或首末资料不足时不计算。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             Text("任职按入职月初至离职月末估算；当前任职统计至今天，空档期不计入。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
         }.dashboardCard()
     }
 
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.caption).foregroundStyle(AppTheme.secondaryText)
             Text(value).font(.title3.weight(.semibold)).monospacedDigit()
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -120,7 +120,7 @@ struct CareerReviewView: View {
                 salaryReadout
                 salaryPlot.frame(height: 200)
                 Text("轻点查看月薪 · 空档期与缺失记录留白")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 Divider()
                 DisclosureGroup("薪资记录（\(visiblePay.count)）") {
                     VStack(alignment: .leading, spacing: 16) {
@@ -130,10 +130,10 @@ struct CareerReviewView: View {
             }
             if summary.incompleteJobs > 0 {
                 Text("\(summary.incompleteJobs) 段经历的日期或薪资待补全，图表仅展示可确定的记录。")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
             }
             Text("仅比较税前月薪，不含奖金、股票和其他收入；未来生效的调薪暂不展示。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
         }.dashboardCard()
     }
 
@@ -148,7 +148,7 @@ struct CareerReviewView: View {
                 HStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("薪资变化").font(.headline)
-                        Text("全部年份 · 税前月薪").font(.caption).foregroundStyle(.secondary)
+                        Text("全部年份 · 税前月薪").font(.caption).foregroundStyle(AppTheme.secondaryText)
                     }
                     Spacer(minLength: 8)
                     salaryReadout.frame(maxWidth: 360)
@@ -171,7 +171,7 @@ struct CareerReviewView: View {
                     Spacer()
                     Text("不含奖金、股票和其他收入")
                 }
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(AppTheme.secondaryText)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
@@ -186,7 +186,7 @@ struct CareerReviewView: View {
     }
 
     private var axisLabelColor: Color {
-        Color(white: colorScheme == .dark ? 0.65 : 0.45)
+        AppTheme.secondaryText
     }
 
     private var salaryPlot: some View {
@@ -203,7 +203,7 @@ struct CareerReviewView: View {
             }
             if let selectedDate {
                 RuleMark(x: .value("查看日期", selectedDate))
-                    .foregroundStyle(.secondary.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                 ForEach(selectedPay) { pay in
                     PointMark(x: .value("查看日期", selectedDate), y: .value("月薪", Double(pay.cents) / 100))
@@ -230,7 +230,7 @@ struct CareerReviewView: View {
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3, 4]))
-                    .foregroundStyle(.secondary.opacity(0.25))
+                    .foregroundStyle(AppTheme.secondaryText.opacity(0.25))
                 AxisValueLabel {
                     if let amount = value.as(Double.self) {
                         Text(amount >= 10_000
@@ -270,26 +270,26 @@ struct CareerReviewView: View {
         let displayed = selectedDate == nil ? latest : selectedPay.first
         return VStack(alignment: .leading, spacing: 5) {
             Text(selectedDate.map { CareerRules.dateLabel($0) } ?? "最近已录入 · 税前月薪")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(displayed.map { ProfileRules.money($0.cents, compact: true) } ?? "暂无记录")
                     .font(.system(.title2, design: .rounded).weight(.semibold))
                     .monospacedDigit()
                 if displayed != nil {
-                    Text("/ 月").font(.caption).foregroundStyle(.secondary)
+                    Text("/ 月").font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
                 Spacer(minLength: 0)
                 if selectedDate != nil {
                     Button { selectedDate = nil } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("取消图表选择")
                 }
             }
             Text(selectedPay.count > 1 ? "该日有 \(selectedPay.count) 段任职，图中分别标示" : displayed.map { $0.name + (fullscreen ? changeLabel($0) : "") } ?? "该日期没有已录入的适用薪资")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -304,8 +304,8 @@ struct CareerReviewView: View {
                     Text(ProfileRules.money(pay.cents)).font(.subheadline.weight(.semibold))
                 }
                 Text("\(CareerRules.monthLabel(pay.start))起" + changeLabel(pay))
-                    .font(.caption).foregroundStyle(.secondary)
-            }.foregroundStyle(.primary)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
+            }.foregroundStyle(AppTheme.primaryText)
         }.buttonStyle(.plain)
     }
 
@@ -328,14 +328,14 @@ struct CareerReviewView: View {
                 Text("按时长").tag(true)
             }.pickerStyle(.segmented)
             if tenures.isEmpty {
-                Text("补充入职月份后查看任职时间轴。").font(.subheadline).foregroundStyle(.secondary)
+                Text("补充入职月份后查看任职时间轴。").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
             } else {
                 if !byDuration {
                     HStack {
                         Text(first, format: .dateTime.year().month())
                         Spacer()
                         Text(last.addingTimeInterval(-1), format: .dateTime.year().month())
-                    }.font(.caption).foregroundStyle(.secondary)
+                    }.font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
                 ForEach(tenures) { tenure in
                     NavigationLink(value: CareerDestination.employment(tenure.id)) {
@@ -355,13 +355,13 @@ struct CareerReviewView: View {
                                     .offset(x: geometry.size.width * offset)
                             }.frame(height: 8).accessibilityHidden(true)
                             Text("\(CareerRules.employmentMonthLabel(tenure.start))—\(CareerRules.employmentMonthLabel(tenure.end.addingTimeInterval(-1)))")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }.foregroundStyle(.primary).padding(.vertical, 4)
+                                .font(.caption).foregroundStyle(AppTheme.secondaryText)
+                        }.foregroundStyle(AppTheme.primaryText).padding(.vertical, 4)
                     }.buttonStyle(.plain)
                 }
             }
             Text(byDuration ? "按任职天数从长到短排列。点击公司查看详情。" : "所有公司使用同一时间刻度，空档期自然留白。点击公司查看详情。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
         }.dashboardCard()
     }
 }

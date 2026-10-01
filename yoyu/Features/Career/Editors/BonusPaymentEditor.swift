@@ -32,8 +32,8 @@ struct BonusPaymentEditor: View {
                 if payment != nil && payment?.year == nil {
                     Section {
                         Text("这笔金额来自旧薪资记录。请核对发放年份；若与另一笔重复，可在下方删除。")
-                            .foregroundStyle(.secondary)
-                    }
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
                 Section("实际发放时间") {
                     Button {
@@ -42,7 +42,7 @@ struct BonusPaymentEditor: View {
                     } label: {
                         LabeledContent("发放年月", value: "\(year) 年 \(month) 月")
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section("税前年终奖收入") {
                     LabeledContent {
                         HStack {
@@ -50,19 +50,19 @@ struct BonusPaymentEditor: View {
                                 .multilineTextAlignment(.trailing)
                                 .keyboardType(.decimalPad)
                                 .accessibilityLabel("税前年终奖金额")
-                            Text("元").foregroundStyle(.secondary)
+                            Text("元").foregroundStyle(AppTheme.secondaryText)
                         }
                     } label: { Text("实际收到（税前）") }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 if let validation {
-                    Section { Text(validation).foregroundStyle(.red) }
+                    Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground)
                 }
                 if payment != nil {
                     Section {
                         Button("删除年终奖记录", role: .destructive) {
                             confirmingDeletion = true
                         }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()

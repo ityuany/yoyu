@@ -11,29 +11,29 @@ struct HolidayScheduleView: View {
                         .font(.title2.weight(.bold))
                     Text("节假日调休安排").font(.headline)
                     Text("国务院办公厅公布 · 中国大陆")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                 }
                 .padding(.vertical, 8)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if year == HolidaySchedule.supportedYear {
                 ForEach(HolidaySchedule.holidays) { holiday in
                     Section {
                         HStack(alignment: .firstTextBaseline) {
                             Text(holiday.name).font(.headline)
                             Spacer()
-                            Text("共 \(holiday.days) 天").font(.subheadline).foregroundStyle(.secondary)
+                            Text("共 \(holiday.days) 天").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                         }
-                        dayRow(badge: "休", text: holiday.rangeLabel, color: .green)
+                        dayRow(badge: "休", text: holiday.rangeLabel, color: AppTheme.success)
                         if holiday.makeup.isEmpty {
-                            Text("无需补班").font(.subheadline).foregroundStyle(.secondary)
+                            Text("无需补班").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                         } else {
                             ForEach(holiday.makeup.indices, id: \.self) { index in
                                 let makeup = holiday.makeup[index]
                                 let weekday = Weekday(ProfileRules.date(year, makeup.month, makeup.day))
-                                dayRow(badge: "班", text: "\(makeup.month) 月 \(makeup.day) 日（\(weekday.name)）", color: .orange)
+                                dayRow(badge: "班", text: "\(makeup.month) 月 \(makeup.day) 日（\(weekday.name)）", color: AppTheme.warning)
                             }
                         }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
                 Section {
                     Link(destination: HolidaySchedule.sourceURL) {
@@ -41,12 +41,12 @@ struct HolidayScheduleView: View {
                     }
                 } footer: {
                     Text("来源：国务院办公厅\n国办发明电〔2025〕7号 · 2025 年 11 月 4 日发布\n这里展示官方安排；公司或个人的变化请在工作安排中单独调整。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             } else {
                 Section {
                     ContentUnavailableView("暂未收录 \(String(year)) 年安排", systemImage: "calendar.badge.exclamationmark", description: Text("当前内置 2026 年官方安排。请更新应用获取新年度数据；工作日暂按常规安排估算。"))
                     Link("前往中国政府网", destination: URL(string: "https://www.gov.cn/")!)
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }.neutralPageBackground()
         .navigationTitle("调休安排")

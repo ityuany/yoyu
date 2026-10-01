@@ -1,33 +1,5 @@
 import SwiftUI
 
-struct TodayPalette {
-    let hue: Double
-    let dark: Bool
-    var ink: Color { Color(hue: hue, saturation: dark ? 0.23 : 0.50, brightness: dark ? 0.92 : 0.36) }
-    var fill: LinearGradient {
-        LinearGradient(colors: [
-            Color(hue: hue, saturation: dark ? 0.32 : 0.07, brightness: dark ? 0.20 : 0.98),
-            Color(hue: hue, saturation: dark ? 0.40 : 0.23, brightness: dark ? 0.30 : 0.89)
-        ], startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
-    init(mood: TodayMood, dark: Bool) {
-        self.dark = dark
-        switch mood.kind {
-        case .work: hue = 0.56
-        case .makeup: hue = 0.09
-        case .weekend, .rest: hue = 0.25
-        case .holiday:
-            switch mood.holidayName {
-            case "春节": hue = 0.02
-            case "中秋节": hue = 0.68
-            case "清明节", "端午节": hue = 0.27
-            default: hue = 0.43
-            }
-        }
-    }
-}
-
 /// Lightweight vector scenery; no timers or looping animations behind the income counter.
 struct TodayScene: View {
     let mood: TodayMood

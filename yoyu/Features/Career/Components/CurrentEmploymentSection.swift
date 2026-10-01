@@ -13,9 +13,9 @@ struct CurrentEmploymentSection: View {
                 LabeledContent("当前税前月薪", value: ProfileRules.money(CareerRules.salary(stages, for: job, on: clock.now)?.salaryCents))
                 NavigationLink("查看任职详情", value: CareerDestination.employment(job.id))
             } else {
-                Text(jobs.isEmpty ? "待完善" : CareerRules.employments(jobs).filter { $0.isCurrent(on: clock.now) }.count > 1 ? "多段任职未结束，请完善履历" : "暂无当前任职").foregroundStyle(.secondary)
+                Text(jobs.isEmpty ? "待完善" : CareerRules.employments(jobs).filter { $0.isCurrent(on: clock.now) }.count > 1 ? "多段任职未结束，请完善履历" : "暂无当前任职").foregroundStyle(AppTheme.secondaryText)
                 NavigationLink("管理企业履历", value: CareerDestination.history)
             }
-        }
+        }.listRowBackground(AppTheme.cardBackground)
     }
 }

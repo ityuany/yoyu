@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 
 struct WealthView: View {
-    @Query private var runwaySettings: [RunwaySettings]
     @Query private var profiles: [UserProfile]
     @Query private var holdings: [StockHolding]
     @Query private var jobs: [Employment]
@@ -18,10 +17,8 @@ struct WealthView: View {
 
     private var profile: UserProfile? { profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) } }
     private var stockValue: Int64? { StockRules.portfolio(holdings, profile: profile, on: clock.now) }
-    private var compensationDate: Date {
-        guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
-        return date
-    }
+    // 财富按当前日期估算；分析中的失业日期只用于预测。
+    private var compensationDate: Date { clock.now }
     private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, bonuses: bonuses, now: compensationDate, employmentDate: clock.now) }
     private var compensation: Int64? { scenario.estimate?.amountCents }
     private var total: Int64? { StockRules.wealth(holdings, profile: profile, on: clock.now) }
@@ -88,11 +85,11 @@ struct WealthView: View {
                         ExpenseHomeSection(cardLayout: true, onSelectCard: { setExpandedCategory(nil) })
                             .padding(.vertical, 22)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(uiColor: .secondarySystemGroupedBackground),
+                            .background(AppTheme.cardBackground,
                                         in: RoundedRectangle(cornerRadius: 28))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 28)
-                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                    .strokeBorder(AppTheme.primaryText.opacity(0.08), lineWidth: 1)
                                     .allowsHitTesting(false)
                             }
                             .background(alignment: .top) {
@@ -206,7 +203,7 @@ struct WealthView: View {
             LabeledContent("现金余额", value: categoryAmount(.cash))
                 .monospacedDigit()
             Text("记录随时可用的现金与存款余额。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
             NavigationLink { WealthAssetDetailView(asset: .cash) } label: {
                 Text("查看资金详情")
@@ -225,7 +222,7 @@ struct WealthView: View {
             LabeledContent("未归属价值", value: ProfileRules.money(StockRules.portfolio(holdings, profile: profile, on: clock.now, unvested: true)))
                 .monospacedDigit()
             Text(needsReview ? "旧股票记录待核对，暂不计算汇总。" : "总资产仅计入已归属部分，按手动设置的股价估算。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
             NavigationLink(value: WealthDestination.stocks) {
                 Text("查看股票详情")
@@ -244,10 +241,10 @@ struct WealthView: View {
                 months: 12, mode: InvestmentInterestMode(rawValue: profile?.investmentInterestMode ?? "") ?? .simple)?.earningsCents))
                 .monospacedDigit()
             Text("年收益按初始本金估算；卡片金额包含自登记日起的累计估算收益。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             if profile?.investmentCents != nil && (profile?.investmentRegistrationDate == nil || profile?.investmentAnnualReturnBasisPoints == nil) {
                 Text("待补登记日期或收益率，当前暂按本金显示。")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
             }
             Spacer(minLength: 0)
             NavigationLink { WealthAssetDetailView(asset: .investment) } label: {
@@ -266,7 +263,7 @@ struct WealthView: View {
                 }
             }
             Text("根据当前任职及工资基数估算，均为税前金额，尚未实际到账。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
             NavigationLink { SeveranceDetailView() } label: {
                 Text(scenario.job == nil ? "完善当前任职" : "查看补偿方案")

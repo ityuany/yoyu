@@ -8,9 +8,9 @@ struct MortgageCertificateCard: View {
 
     @ScaledMetric(relativeTo: .subheadline) private var detailFontSize = 14.0
 
-    private var ink: Color { dark ? Color(red: 0.91, green: 0.89, blue: 0.85) : Color(red: 0.20, green: 0.19, blue: 0.18) }
-    private var accent: Color { dark ? Color(red: 0.67, green: 0.40, blue: 0.41) : Color(red: 0.43, green: 0.22, blue: 0.24) }
-    private var paper: Color { dark ? Color(red: 0.14, green: 0.14, blue: 0.14) : Color(red: 0.97, green: 0.96, blue: 0.94) }
+    private var ink: Color { AppTheme.mortgageInk }
+    private var accent: Color { AppTheme.mortgageAccent }
+    private var paper: Color { AppTheme.mortgagePaper }
     private var dark: Bool { colorScheme == .dark }
     private var cardShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(topLeadingRadius: 7, bottomLeadingRadius: 7, bottomTrailingRadius: 32, topTrailingRadius: 32)

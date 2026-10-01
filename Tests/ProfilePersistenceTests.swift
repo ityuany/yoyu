@@ -28,7 +28,7 @@ struct ProfilePersistenceTests {
             context.insert(WorkdayOverride(dateKey: "2026-09-20", isWorkday: false))
             try context.save()
             precondition(profile.retirement == "2058 年 6 月")
-            precondition(profile.totalWealth == 30003)
+            precondition(StockRules.wealth([], profile: profile, on: ProfileRules.date(2026, 9, 1)) == 30003)
             profile.gender = "女"
             context.rollback()
             precondition(profile.gender == "男")
@@ -54,7 +54,7 @@ struct ProfilePersistenceTests {
             profiles[0].investmentRegistrationDate = ProfileRules.date(2026, 9, 1)
             profiles[0].investmentInterestMode = "复利"
             precondition(profiles[0].stockValueCents == 123400)
-            precondition(profiles[0].totalWealth == 133401)
+            precondition(StockRules.wealth([], profile: profiles[0], on: ProfileRules.date(2026, 9, 1)) == 133401)
             let overrides = try context.fetch(FetchDescriptor<WorkdayOverride>())
             precondition(overrides.count == 1 && !overrides[0].isWorkday)
             context.delete(overrides[0])
@@ -75,7 +75,7 @@ struct ProfilePersistenceTests {
             precondition(profile.investmentInterestMode == "复利")
             profile.stockPriceCents = 2468
             precondition(profile.stockValueCents == 246800)
-            precondition(profile.totalWealth == 256801)
+            precondition(StockRules.wealth([], profile: profile, on: ProfileRules.date(2026, 9, 1)) == 256801)
         }
         print("PASS: SwiftData disk save/reopen, legacy stock preservation, live stock valuation, signed annual return, retirement, rollback and override removal")
     }

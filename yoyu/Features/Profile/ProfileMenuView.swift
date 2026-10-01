@@ -14,31 +14,23 @@ struct ProfileMenuView: View {
                             Text("个人资料")
                             Text(summary)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                     } icon: {
                         Image(systemName: "person.crop.circle")
                     }
                 }
                 .accessibilityHint("查看和编辑基本信息")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
 
             Section("工作与安排") {
                 NavigationLink(value: CareerDestination.history) {
                     Label("企业履历", systemImage: "building.2")
                 }
-                NavigationLink(value: CareerDestination.pension) {
-                    Label("养老保险分析", systemImage: "cross.case")
-                }
-                .accessibilityIdentifier("profile.pension")
-                NavigationLink(value: CareerDestination.housing) {
-                    Label("住房公积金分析", systemImage: "house")
-                }
-                .accessibilityIdentifier("profile.housing")
                 NavigationLink(value: ProfileRoute.holidays) {
                     Label("调休安排", systemImage: "calendar.badge.clock")
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
 
             Section("临时工具") {
                 Button { showingFinancialExport = true } label: {
@@ -46,7 +38,18 @@ struct ProfileMenuView: View {
                 }
                 .accessibilityIdentifier("profile.financialExport")
                 .accessibilityHint("汇集财务信息，预览后复制或分享给 AI")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
+
+            #if DEBUG
+            Section {
+                NavigationLink {
+                    TestPagesView()
+                } label: {
+                    Label("测试页面", systemImage: "hammer")
+                }
+                .accessibilityIdentifier("profile.testPages")
+            }.listRowBackground(AppTheme.cardBackground)
+            #endif
 
             Section("数据与同步") {
                 NavigationLink {
@@ -57,13 +60,13 @@ struct ProfileMenuView: View {
                             Text("iCloud 同步")
                             Text(syncStatus)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                     } icon: {
                         Image(systemName: "icloud")
                     }
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }.neutralPageBackground()
         .listStyle(.insetGrouped)
         .sheet(isPresented: $showingFinancialExport) { FinancialExportView() }

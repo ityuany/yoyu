@@ -285,7 +285,7 @@ Tests/run-tests.sh FinancialMarkdown
 Tests/run-tests.sh Runway
 ```
 
-覆盖资产使用顺序、资金不足日期、失业前资金不足、失业日补偿、重新就业后赎回、必要资料缺失、还款去重、单利与复利赎回及情景持久化。`RunwayUITests` 使用独立内存示例验证取消、保存、情景切换、图表全屏及收支明细；按项目验收约定在同一已启动设备上分别执行浅色与深色测试。模拟器构建须使用 `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`，安装前验证实际产物签名。Debug 启动参数 `--runway-demo` 可直接查看示例，`--forecast` 打开个人预测页。
+覆盖资产使用顺序、资金不足日期、失业前资金不足、失业日补偿、重新就业后赎回、必要资料缺失、还款去重、单利与复利赎回及情景持久化。`RunwayUITests` 使用独立内存示例验证取消、保存、情景切换、图表全屏及收支明细；按项目验收约定在同一已启动设备上分别执行浅色与深色测试。模拟器构建须使用 `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`，安装前验证实际产物签名。Debug 启动参数 `--runway-demo` 可直接查看示例，`--analysis` 打开个人分析页。
 
 ### 预测算法性能与结果一致性
 

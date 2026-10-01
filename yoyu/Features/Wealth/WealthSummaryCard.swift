@@ -9,8 +9,8 @@ struct WealthSummaryCard: View {
     @State private var showingScope = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    private let ink = Color(red: 0.96, green: 0.95, blue: 0.92)
-    private let mutedInk = Color(red: 0.70, green: 0.70, blue: 0.68)
+    private let ink = AppTheme.wealthSummaryInk
+    private let mutedInk = AppTheme.wealthSummaryMutedInk
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -59,41 +59,7 @@ struct WealthSummaryCard: View {
         .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .foregroundStyle(ink)
-        .background {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.16, green: 0.17, blue: 0.18),
-                             Color(red: 0.12, green: 0.13, blue: 0.14),
-                             Color(red: 0.07, green: 0.08, blue: 0.09)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
-                .overlay {
-                    // A broad, static reflection stays behind the text and inside the card.
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(LinearGradient(stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .white.opacity(0.02), location: 0.12),
-                            .init(color: .white.opacity(0.11), location: 0.29),
-                            .init(color: .white.opacity(0.035), location: 0.43),
-                            .init(color: .clear, location: 0.63)
-                        ], startPoint: .topTrailing, endPoint: .bottomLeading))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(RadialGradient(
-                            colors: [Color(red: 0.88, green: 0.91, blue: 0.96).opacity(0.09), .clear],
-                            center: UnitPoint(x: 0.88, y: -0.15), startRadius: 0, endRadius: 240
-                        ))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(LinearGradient(
-                            colors: [.white.opacity(0.48), .white.opacity(0.07), .white.opacity(0.16)],
-                            startPoint: .topTrailing, endPoint: .bottomLeading
-                        ), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.14), radius: 10, y: 5)
-        }
+        .background(SummaryCardBackground())
         .alert("资产统计口径", isPresented: $showingScope) {
             Button("知道了", role: .cancel) { }
         } message: {

@@ -20,29 +20,29 @@ struct HousingFundLimitsView: View {
             Section {
                 Text("每条记录从生效月份开始沿用，直到下一条记录。金额为每月缴存基数范围，不代表个人实际缴存基数。2010—2013 年下限采用市区标准。")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+                    .foregroundStyle(AppTheme.secondaryText)
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 Link("查看南京住房公积金管理中心历年标准", destination: URL(string: "https://gjj.nanjing.gov.cn/bmxgj/jcsxxbg/202008/t20200819_2374481.html")!)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             ForEach(visibleRecords) { record in
                 Button { editing = record } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(monthLabel(record.effectiveMonth))
                                 .font(.headline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(AppTheme.primaryText)
                             Spacer()
                             Text("\(record.evidence.symbol) \(record.evidence.title)")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                         HStack(spacing: 16) {
                             Text("下限 \(ProfileRules.money(record.lowerCents))")
                             Text("上限 \(ProfileRules.money(record.upperCents))")
                         }
                         .font(.subheadline)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppTheme.primaryText)
                     }
                     .padding(.vertical, 4)
                     .contentShape(Rectangle())
@@ -111,31 +111,31 @@ private struct HousingFundLimitEditor: View {
                         showingMonthPicker = true
                     } label: {
                         HStack {
-                            Text("生效年月").foregroundStyle(.primary)
+                            Text("生效年月").foregroundStyle(AppTheme.primaryText)
                             Spacer()
-                            Text("\(year) 年 \(month) 月").foregroundStyle(.secondary)
+                            Text("\(year) 年 \(month) 月").foregroundStyle(AppTheme.secondaryText)
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section("月缴存基数") {
                     amountRow("下限", text: $lower, identifier: "housingLimit.lower")
                     amountRow("上限", text: $upper, identifier: "housingLimit.upper")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Picker("核实状态", selection: $evidence) {
                         ForEach(LimitEvidence.allCases) { value in
                             Text("\(value.symbol) \(value.title)").tag(value)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 if let validation {
-                    Section { Text(validation).foregroundStyle(.red) }
+                    Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground)
                 }
                 if record != nil {
                     Section {
                         Button("删除这条标准", role: .destructive) { confirmingDeletion = true }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()
@@ -191,7 +191,7 @@ private struct HousingFundLimitEditor: View {
                     .multilineTextAlignment(.trailing)
                     .accessibilityLabel(title)
                     .accessibilityIdentifier(identifier)
-                Text("元/月").foregroundStyle(.secondary)
+                Text("元/月").foregroundStyle(AppTheme.secondaryText)
             }
         }
     }

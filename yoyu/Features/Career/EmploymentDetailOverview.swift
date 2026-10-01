@@ -49,7 +49,7 @@ struct EmploymentDetailOverview: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(job.displayName).font(.title2.weight(.bold))
-                    Text(tenure).font(.subheadline).foregroundStyle(.secondary)
+                    Text(tenure).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     Divider()
                     HStack(alignment: .top, spacing: 16) {
                         total("累计月薪", value: CareerRules.estimatedSalaryCents(salaries, for: job, on: clock.now))
@@ -57,7 +57,7 @@ struct EmploymentDetailOverview: View {
                     }
                 }
                 .padding(.vertical, 6)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("待遇") {
                 NavigationLink {
                     SalaryTimelineView(job: job)
@@ -69,23 +69,23 @@ struct EmploymentDetailOverview: View {
                 } label: {
                     LabeledContent("最近年终奖", value: latestBonus.map { ProfileRules.money($0.amountCents) } ?? (hasBonusRecords ? "待确认" : "暂无记录"))
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 Button {
                     navigation.openStocks(holdingID: holding?.id)
                 } label: {
                     HStack {
-                        Text("公司股票").foregroundStyle(.primary)
+                        Text("公司股票").foregroundStyle(AppTheme.primaryText)
                         Spacer()
                         Text(holding.flatMap { StockRules.balance($0, on: clock.now) }.map { "已归属 \(ProfileRules.input($0.vestedShares)) 股" } ?? "未关联")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                         Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                     }
                 }
                 .buttonStyle(.plain)
             } header: {
                 sourceHeader("股票激励", source: "数据来自财富")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 NavigationLink {
                     ContributionOverview(job: job, kind: .pension)
@@ -101,23 +101,23 @@ struct EmploymentDetailOverview: View {
                 sourceHeader("社保与公积金", source: "数据来自缴纳记录")
             } footer: {
                 Text("按各阶段的缴纳基数和个人比例自动累计；实际到账金额可能略有差异。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("工时安排") {
                 NavigationLink {
                     EmploymentWorkDetail(job: job)
                 } label: {
                     LabeledContent("工作时间", value: workLabel)
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("任职信息") {
                 LabeledContent("入职月份", value: job.start.map(CareerRules.monthLabel) ?? "待填写")
                 LabeledContent("离职月份", value: job.end.map(CareerRules.monthLabel) ?? "在职")
                 LabeledContent("发薪日", value: "每月 \(job.salaryPaymentDay) 号")
                     .accessibilityIdentifier("employment.payday.summary")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section {
                 Button("删除任职记录", role: .destructive) { confirmingDeletion = true }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
         .neutralPageBackground()
         .listStyle(.insetGrouped)
@@ -139,7 +139,7 @@ struct EmploymentDetailOverview: View {
 
     private func total(_ title: String, value: Int64?, empty: String = "待填写") -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Text(title).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
             Text(value.map { ProfileRules.money($0, compact: true) } ?? empty)
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()

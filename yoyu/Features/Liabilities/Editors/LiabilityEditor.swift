@@ -133,15 +133,15 @@ struct LiabilityEditor: View {
                         }
                     }
                     if kind == .mortgage || !fixedOnly { DatePicker("余额确认日期", selection: $balanceDate, in: ...Date(), displayedComponents: .date) }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 if kind == .mortgage { mortgageForm } else if fixedOnly { fixedCardForm } else { cardForm }
-                Section("备注") { TextField("选填", text: $note, axis: .vertical) }
+                Section("备注") { TextField("选填", text: $note, axis: .vertical) }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Text(kind == .mortgage
                          ? "按当前执行利率推算。调整利率或提前还款后，请按银行结果更新剩余本金、期数和下次还款日。"
                          : fixedOnly ? "自动推算假设每期正常还款，过了还款日计为已还，不代表银行实际扣款。月份不足指定天数时，使用月末。年利率按等额本息计算；手续费按分期总额计算。" : "总欠款包含所有分期剩余本金和已入账费用，不含尚未入账的未来费用。已录入的本期账单不会再叠加当期分期。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
             }.neutralPageBackground()
             .onChange(of: repaymentDay) { _, day in
                 for i in plans.indices {
@@ -184,7 +184,7 @@ struct LiabilityEditor: View {
                     }
                 } header: { Text(loan.name) } footer: {
                     Text("金额单位为人民币元。填写最近一次还款后的银行余额；每期本金留空则均分，尾期补齐。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if loans.count < 2 {
                 Section {
@@ -192,7 +192,7 @@ struct LiabilityEditor: View {
                         let next = LiabilityRules.calendar.date(byAdding: .month, value: 1, to: balanceDate)!
                         loans.append(LoanDraft(.init(name: loans.first?.name == "商业贷款" ? "公积金贷款" : "商业贷款", nextDate: next, dueDay: LiabilityRules.calendar.component(.day, from: next))))
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
     }
@@ -233,7 +233,7 @@ struct LiabilityEditor: View {
                             }
                         }
                     Toggle("后续按月自动推算", isOn: $plan.automatic)
-                    if plan.settled { Text("此分期已结清").foregroundStyle(.secondary) }
+                    if plan.settled { Text("此分期已结清").foregroundStyle(AppTheme.secondaryText) }
                     if let value = fixedValue(plan),
                        LiabilityRules.error(LiabilitySnapshot(installments: [value], fixedInstallmentsOnly: true), kind: .creditCard) == nil {
                         let all = LiabilityRules.fullInstallments(value)
@@ -249,13 +249,13 @@ struct LiabilityEditor: View {
                     }
                 } header: { Text(plan.name.isEmpty ? "固定分期" : plan.name) } footer: {
                     Text("例如第 5 期待还，表示前 4 期已还，剩余金额包含第 5 期。下次还款日可修改，不必填写最初开始日期。逾期未还请关闭自动推算。金额单位为元，免息填 0。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 Button("添加另一笔分期", systemImage: "plus") {
                     plans.append(InstallmentDraft(.init(nextDate: LiabilityRules.nextRepaymentDate(on: clock.now, day: repaymentDay), dueDay: repaymentDay, terms: .init(automatic: true))))
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
     }
 
@@ -267,7 +267,7 @@ struct LiabilityEditor: View {
                 DatePicker("本期还款日", selection: $billDate, displayedComponents: .date)
             } header: { Text("银行账单") } footer: {
                 Text("金额单位为人民币元。本期应还填写含分期的剩余账单合计；留空表示未知，0 表示本期已还清。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             ForEach($plans) { $plan in
                 Section {
                     TextField("分期名称", text: $plan.name)
@@ -283,13 +283,13 @@ struct LiabilityEditor: View {
                     Button("移除此分期", role: .destructive) { plans.removeAll { $0.id == plan.id } }
                 } header: { Text(plan.name.isEmpty ? "分期计划" : plan.name) } footer: {
                     Text("每期费用为银行收取的利息／手续费。分期本金已包含在总欠款里，留空每期本金则均分；一次性费用填在下期费用中，其余期填 0。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 Button("添加分期计划", systemImage: "plus") {
                     plans.append(InstallmentDraft(.init(nextDate: billDate, dueDay: LiabilityRules.calendar.component(.day, from: billDate))))
                 }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
     }
 

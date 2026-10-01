@@ -7,7 +7,6 @@ struct TodayDashboard: View {
     let now: Date
     var isPreview = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let job = CareerRules.current(jobs, on: now)
@@ -32,7 +31,7 @@ struct TodayDashboard: View {
         }
         .background {
             if let mood {
-                TodayPalette(mood: mood, dark: colorScheme == .dark).fill
+                AppTheme.TodayPalette(mood: mood).fill
                     .ignoresSafeArea()
             } else {
                 DashboardStyle.background.ignoresSafeArea()
@@ -42,7 +41,7 @@ struct TodayDashboard: View {
 
     private func focusedDashboard(_ value: TodayIncome.Snapshot, job: Employment, height: CGFloat) -> some View {
         let mood = TodayMood(day: value.day, isRest: value.status == .rest, followsHolidays: job.followsHolidays)
-        let palette = TodayPalette(mood: mood, dark: colorScheme == .dark)
+        let palette = AppTheme.TodayPalette(mood: mood)
         return VStack(spacing: 0) {
             HStack {
                 dateLabel(value.day, isShift: value.status != .rest)
@@ -53,7 +52,7 @@ struct TodayDashboard: View {
                         .frame(minHeight: 44)
                 }
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AppTheme.secondaryText)
 
             Color.clear
                 .frame(height: min(80, max(32, height * 0.10)))
@@ -184,7 +183,7 @@ struct TodayDashboard: View {
         #if DEBUG
         if isPreview {
             Label("预览时间 · 仅供查看", systemImage: "clock")
-                .font(.caption).foregroundStyle(.orange)
+                .font(.caption).foregroundStyle(AppTheme.warning)
         }
         #endif
     }
@@ -211,7 +210,7 @@ struct TodayDashboard: View {
                     Text("当前显示上一日开始的跨夜班次，收入归入班次开始日。")
                 }
             }
-            .font(.caption).foregroundStyle(.secondary)
+            .font(.caption).foregroundStyle(AppTheme.secondaryText)
             .padding(.top, 16)
         }
     }
@@ -220,7 +219,7 @@ struct TodayDashboard: View {
         VStack(alignment: .leading, spacing: 20) {
             Image(systemName: "sun.max").font(.largeTitle).foregroundStyle(DashboardStyle.accent)
             Text(title).font(.title2.weight(.semibold))
-            Text(message).font(.subheadline).foregroundStyle(.secondary)
+            Text(message).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
             NavigationLink("完善企业信息", value: destination)
                 .buttonStyle(.borderedProminent).controlSize(.large)
             previewNotice

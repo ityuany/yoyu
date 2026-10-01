@@ -16,16 +16,16 @@ struct SalaryTimelineView: View {
             Section {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(job.isCurrent(on: clock.now) ? "当前税前月薪" : "离职时税前月薪")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     Text(ProfileRules.money(current?.salaryCents))
                         .font(.largeTitle.weight(.semibold)).monospacedDigit()
                     if let date = current?.effectiveDate {
                         Text("\(CareerRules.monthLabel(date)) 起生效")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     }
                 }
                 .padding(.vertical, 8)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if ordered.isEmpty {
                 ContentUnavailableView("尚无薪资阶段", systemImage: "calendar", description: Text("点右上角添加入职月薪或一次调薪。"))
             } else {
@@ -43,7 +43,7 @@ struct SalaryTimelineView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()

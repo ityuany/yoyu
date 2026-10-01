@@ -2,23 +2,15 @@ import SwiftUI
 
 /// Shared visual roles for overview and detail screens.
 enum DashboardStyle {
-    // Brand color is reserved for the selected bottom tab.
-    static let tabSelection = adaptive(light: (128.0 / 255, 0, 32.0 / 255), dark: (230.0 / 255, 160.0 / 255, 180.0 / 255))
-    static let accent = Color(uiColor: .label)
-    static let background = Color(uiColor: .systemBackground)
-    static let cash = adaptive(light: (0.39, 0.56, 0.49), dark: (0.56, 0.74, 0.65))
-    static let stock = adaptive(light: (0.33, 0.48, 0.61), dark: (0.54, 0.71, 0.85))
-    static let investment = adaptive(light: (0.65, 0.51, 0.34), dark: (0.80, 0.68, 0.49))
-    static let compensation = adaptive(light: (0.58, 0.45, 0.65), dark: (0.76, 0.64, 0.83))
+    static let tabSelection = AppTheme.accent
+    static let accent = AppTheme.accent
+    static let background = AppTheme.pageBackground
+    static let cash = AppTheme.chartCash
+    static let stock = AppTheme.chartStock
+    static let investment = AppTheme.chartInvestment
+    static let compensation = AppTheme.chartCompensation
     static let pageInset: CGFloat = 20
     static let sectionSpacing: CGFloat = 24
-
-    private static func adaptive(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)) -> Color {
-        Color(uiColor: UIColor { traits in
-            let color = traits.userInterfaceStyle == .dark ? dark : light
-            return UIColor(red: color.0, green: color.1, blue: color.2, alpha: 1)
-        })
-    }
 }
 
 struct DashboardCard: ViewModifier {
@@ -29,10 +21,10 @@ struct DashboardCard: ViewModifier {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(highlighted ? AppTheme.highlightedBackground : AppTheme.cardBackground)
                     .overlay {
                         RoundedRectangle(cornerRadius: 24)
-                            .strokeBorder(DashboardStyle.accent.opacity(highlighted ? 0.12 : 0), lineWidth: 1)
+                            .strokeBorder(AppTheme.border, lineWidth: 1)
                     }
             }
     }
@@ -45,7 +37,7 @@ struct DashboardAmount: View {
     var body: some View {
         Text(value)
             .font(.system(.largeTitle, design: .rounded).weight(.semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(AppTheme.primaryText)
             .monospacedDigit()
             .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.65)
@@ -59,7 +51,7 @@ struct DashboardSectionTitle: View {
     var body: some View {
         Text(title)
             .font(.headline)
-            .foregroundStyle(.primary)
+            .foregroundStyle(AppTheme.primaryText)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -77,10 +69,10 @@ extension View {
     }
 }
 
-/// Use the same neutral page background for lists and editing forms.
+/// Use the same themed page background for lists and editing forms.
 extension View {
     func neutralPageBackground() -> some View {
         scrollContentBackground(.hidden)
-            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+            .background(AppTheme.pageBackground.ignoresSafeArea())
     }
 }

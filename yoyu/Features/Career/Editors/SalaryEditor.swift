@@ -37,23 +37,23 @@ struct SalaryEditor: View {
                             LabeledContent("生效月份", value: CareerRules.monthLabel(date))
                         }
                         .accessibilityIdentifier("salary.effectiveMonth")
-                    } else { Text("保留未知月份，确认后再补充。").foregroundStyle(.secondary) }
-                }
+                    } else { Text("保留未知月份，确认后再补充。").foregroundStyle(AppTheme.secondaryText) }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     number("税前月薪", text: $salary, unit: "元/月")
                 } header: { Text("薪资待遇") } footer: {
                     Text("留空表示未知，0 表示没有。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     TextField("调整原因（选填）", text: $reason)
                 } footer: {
                     Text(stage == nil ? "新增阶段会保留原有薪资。未来月份的待遇在生效前不会用于当前薪资。" : "此操作修改已有记录，不会新增一次调薪。")
-                }
-                if let validation { Section { Text(validation).foregroundStyle(.red) } }
+                }.listRowBackground(AppTheme.cardBackground)
+                if let validation { Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground) }
                 if stage != nil {
                     Section {
                         Button("删除薪资阶段", role: .destructive) { confirmingDeletion = true }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
             }.neutralPageBackground()
             .environment(\.calendar, ProfileRules.calendar)
@@ -107,7 +107,7 @@ struct SalaryEditor: View {
                     #if os(iOS)
                     .keyboardType(.decimalPad)
                     #endif
-                Text(unit).foregroundStyle(.secondary).fixedSize()
+                Text(unit).foregroundStyle(AppTheme.secondaryText).fixedSize()
             }
         } label: { Text(title) }
     }

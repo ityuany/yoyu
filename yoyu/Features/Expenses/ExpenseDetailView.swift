@@ -18,22 +18,22 @@ struct ExpenseDetailView: View {
                 List {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("\(plan.estimated ? "预估金额" : "固定金额") · \(plan.frequency.title)").font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(plan.estimated ? "预估金额" : "固定金额") · \(plan.frequency.title)").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                             DashboardAmount(value: ProfileRules.money(plan.amount))
-                            Text(ExpenseRules.status(plan, on: clock.now)).font(.subheadline).foregroundStyle(.secondary)
+                            Text(ExpenseRules.status(plan, on: clock.now)).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                         }.padding(.vertical, 8)
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                     Section("发生时间") {
                         LabeledContent("开始日期", value: ExpenseRules.dateLabel(plan.start))
                         LabeledContent("结束日期", value: plan.end.map { ExpenseRules.dateLabel($0) } ?? "长期持续")
                         LabeledContent("发生方式", value: ExpenseRules.scheduleLabel(plan))
                         LabeledContent("工作中断时", value: plan.pausesDuringWorkBreak == true ? "暂停，复工后继续" : "照常计入")
                             .accessibilityIdentifier("expense.workBreakBehavior")
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                     if ExpectedExpenseRules.isCovered(record, liabilities: liabilities) {
                         Section {
                             Text("已包含在负债还款中；预计支出汇总和生存时长预测只计负债还款。")
-                        }
+                        }.listRowBackground(AppTheme.cardBackground)
                     }
                     Section {
                         ForEach(0..<12, id: \.self) { offset in
@@ -43,9 +43,9 @@ struct ExpenseDetailView: View {
                         }
                     } header: { Text("未来 12 个月") } footer: {
                         Text("按当前计划估算，包含本月整月。未开始、已结束或没有扣款的月份计为零；不代表实际消费。")
-                    }
-                    if !plan.note.isEmpty { Section("备注") { Text(plan.note) } }
-                    Section { Button("删除开支计划", role: .destructive) { deleting = true } }
+                    }.listRowBackground(AppTheme.cardBackground)
+                    if !plan.note.isEmpty { Section("备注") { Text(plan.note) }.listRowBackground(AppTheme.cardBackground) }
+                    Section { Button("删除开支计划", role: .destructive) { deleting = true } }.listRowBackground(AppTheme.cardBackground)
                 }.neutralPageBackground()
                 .navigationTitle(plan.name).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .primaryAction) { Button("编辑") { editing = true } } }

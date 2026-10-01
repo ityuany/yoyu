@@ -22,25 +22,25 @@ enum WealthCategory: String, CaseIterable, Identifiable {
         case .debt: "还款与账单"
         }
     }
-    private var hue: Double {
+    var ink: Color {
         switch self {
-        case .cash: 0.12
-        case .stocks: 0.57
-        case .investment: 0.22
-        case .compensation: 0.70
-        case .debt: 0.04
+        case .cash: AppTheme.WealthCategoryPalette.cashInk
+        case .stocks: AppTheme.WealthCategoryPalette.stocksInk
+        case .investment: AppTheme.WealthCategoryPalette.investmentInk
+        case .compensation: AppTheme.WealthCategoryPalette.compensationInk
+        case .debt: AppTheme.WealthCategoryPalette.debtInk
+        }
+    }
+    var fill: LinearGradient {
+        switch self {
+        case .cash: AppTheme.WealthCategoryPalette.cashFill
+        case .stocks: AppTheme.WealthCategoryPalette.stocksFill
+        case .investment: AppTheme.WealthCategoryPalette.investmentFill
+        case .compensation: AppTheme.WealthCategoryPalette.compensationFill
+        case .debt: AppTheme.WealthCategoryPalette.debtFill
         }
     }
 
-    func ink(dark: Bool) -> Color {
-        Color(hue: hue, saturation: dark ? 0.24 : 0.55, brightness: dark ? 0.94 : 0.32)
-    }
-    func fill(dark: Bool) -> LinearGradient {
-        LinearGradient(colors: [
-            Color(hue: hue, saturation: dark ? 0.30 : 0.09, brightness: dark ? 0.21 : 0.97),
-            Color(hue: hue, saturation: dark ? 0.36 : 0.23, brightness: dark ? 0.29 : 0.87)
-        ], startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
 }
 
 enum WealthCardGeometry {
@@ -82,7 +82,7 @@ struct WealthCategoryCard<Content: View>: View {
             .accessibilityValue(isExpanded ? "已展开" : "已收起")
             .accessibilityHint(isExpanded ? "轻点收起分类" : "轻点展开分类")
             VStack(alignment: .leading, spacing: 16) {
-                Rectangle().fill(category.ink(dark: dark).opacity(0.12)).frame(height: 1)
+                Rectangle().fill(category.ink.opacity(0.12)).frame(height: 1)
                 content
             }
             .font(.subheadline)
@@ -98,11 +98,11 @@ struct WealthCategoryCard<Content: View>: View {
         }
         .frame(minHeight: WealthCardGeometry.minimumHeight, alignment: .top)
         .fixedSize(horizontal: false, vertical: true)
-        .foregroundStyle(category.ink(dark: dark))
-        .background(category.fill(dark: dark), in: RoundedRectangle(cornerRadius: 28))
+        .foregroundStyle(category.ink)
+        .background(category.fill, in: RoundedRectangle(cornerRadius: 28))
         .overlay {
             RoundedRectangle(cornerRadius: 28)
-                .strokeBorder(dark ? Color.white.opacity(0.12) : Color.white.opacity(0.9), lineWidth: 2)
+                .strokeBorder(dark ? Color.white.opacity(0.07) : Color.white.opacity(0.9), lineWidth: 2)
                 .allowsHitTesting(false)
         }
         .clipShape(RoundedRectangle(cornerRadius: 28))

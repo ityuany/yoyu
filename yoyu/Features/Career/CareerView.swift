@@ -30,19 +30,19 @@ struct CareerView: View {
                             Label {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("职业回顾")
-                                    Text("薪资变化与任职时长").font(.caption).foregroundStyle(.secondary)
+                                    Text("薪资变化与任职时长").font(.caption).foregroundStyle(AppTheme.secondaryText)
                                 }
                             } icon: {
                                 Image(systemName: "chart.xyaxis.line").foregroundStyle(DashboardStyle.accent)
                             }
                         }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                     if jobs.isEmpty { ContentUnavailableView("尚未录入企业履历", systemImage: "building.2", description: Text("添加当前任职，或补录过去的企业经历。")) }
                     let ordered = CareerRules.employments(jobs)
                     let current = ordered.filter { $0.isCurrent(on: clock.now) }
                     if current.count > 1 {
                         Text("有多段任职尚未结束，请完善离职月份后确定当前企业。")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(AppTheme.warning)
                     }
                     if !ordered.isEmpty {
                         Section("任职时间线") {
@@ -52,7 +52,7 @@ struct CareerView: View {
                                     trend: trend,
                                     nextTrend: index + 1 < ordered.count ? salaryTrend(at: index + 1, in: ordered) : nil)
                             }
-                        }
+                        }.listRowBackground(AppTheme.cardBackground)
                     }
                 }.neutralPageBackground()
                 .listStyle(.insetGrouped)
@@ -124,7 +124,7 @@ private struct ContributionAnalysisOverview: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("跨企业累计缴纳")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                         Text(ProfileRules.money(configuredTotal))
                             .font(.largeTitle.weight(.semibold))
                             .monospacedDigit()
@@ -132,7 +132,7 @@ private struct ContributionAnalysisOverview: View {
                     .accessibilityElement(children: .combine)
                 } footer: {
                     Text("按各企业已配置的基数和个人比例自动累计；缺少配置的月份不计入。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if kind == .pension {
                 Section("跨企业分析") {
@@ -144,7 +144,7 @@ private struct ContributionAnalysisOverview: View {
                         Label("疑似少缴", systemImage: "exclamationmark.triangle")
                     }
                     .accessibilityIdentifier("pension.shortfall")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             } else {
                 Section("跨企业分析") {
                     NavigationLink(value: ProfileRoute.housingFundLimits) {
@@ -155,7 +155,7 @@ private struct ContributionAnalysisOverview: View {
                         Label("疑似少缴", systemImage: "exclamationmark.triangle")
                     }
                     .accessibilityIdentifier("housing.shortfall")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if jobs.isEmpty {
                 ContentUnavailableView("尚无企业履历", systemImage: "building.2", description: Text("先录入任职经历，再到企业详情记录对应的\(kind.title)。"))
@@ -163,8 +163,8 @@ private struct ContributionAnalysisOverview: View {
             } else {
                 Section {
                     Text("各企业的缴纳配置和累计金额，请到对应的企业详情查看与维护。")
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()

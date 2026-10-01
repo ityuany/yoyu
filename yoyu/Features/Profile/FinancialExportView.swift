@@ -21,7 +21,7 @@ struct FinancialExportView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("仅在本机整理已录入的数据，复制或分享后可交给 AI 分析。")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(AppTheme.secondaryText)
                         HStack {
                             Button {
                                 UIPasteboard.general.string = markdown
@@ -35,7 +35,7 @@ struct FinancialExportView: View {
                                 .buttonStyle(.bordered)
                         }
                         Text(copied ? "已复制，可粘贴给 AI" : " ")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(AppTheme.secondaryText)
                             .accessibilityIdentifier("financialExport.copyStatus")
                         ScrollView {
                             Text(verbatim: markdown)

@@ -5,7 +5,6 @@ struct SeveranceEditor: View {
     let job: Employment
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query private var runwaySettings: [RunwaySettings]
     @Query private var stages: [SalaryStage]
     @Query private var bonuses: [BonusPayment]
     @Environment(CareerClock.self) private var clock
@@ -42,14 +41,14 @@ struct SeveranceEditor: View {
                                             .font(.headline).monospacedDigit()
                                     }
                                     Text(explanation(for: option))
-                                        .font(.footnote).foregroundStyle(.secondary)
+                                        .font(.footnote).foregroundStyle(AppTheme.secondaryText)
                                 }
                                 Image(systemName: plan == option ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(plan == option ? Color.accentColor : Color.secondary)
+                                    .foregroundStyle(plan == option ? AppTheme.accent : AppTheme.secondaryText)
                                     .font(.title3)
                                     .accessibilityHidden(true)
                             }
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(AppTheme.primaryText)
                             .padding(.vertical, 8)
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
@@ -62,7 +61,7 @@ struct SeveranceEditor: View {
                     Text("预测方案 · 税前估算")
                 } footer: {
                     Text("选择预计被裁时采用的赔偿方案，用于财富卡片显示和预测中的裁员补偿金额。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("3倍社平").font(.subheadline)
@@ -71,19 +70,19 @@ struct SeveranceEditor: View {
                                 .keyboardType(.decimalPad)
                                 .accessibilityLabel("3倍社平")
                                 .monospacedDigit()
-                            Text("元/月").foregroundStyle(.secondary)
+                            Text("元/月").foregroundStyle(AppTheme.secondaryText)
                         }
                     }
                     .padding(.vertical, 4)
                 } footer: {
                     Text("填写已经乘以 3 的月金额。平均月工资高于此标准时，月薪基数按此封顶，补偿年限最多按 12 年。留空表示暂未应用封顶。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Text("测算日期、工龄、平均月工资和上月工资均根据职业履历自动计算，不含股票。请在职业履历中补充或更新任职与薪资记录。")
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(AppTheme.secondaryText)
+                }.listRowBackground(AppTheme.cardBackground)
                 if let validationError {
-                    Section { Text(validationError).foregroundStyle(.red) }
+                    Section { Text(validationError).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()
@@ -99,10 +98,8 @@ struct SeveranceEditor: View {
         }
     }
 
-    private var compensationDate: Date {
-        guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
-        return date
-    }
+    // 财富按当前日期估算；分析中的失业日期只用于预测。
+    private var compensationDate: Date { clock.now }
 
     private func amount(for option: SeverancePlan) -> String {
         guard validationError == nil else { return "待完善" }

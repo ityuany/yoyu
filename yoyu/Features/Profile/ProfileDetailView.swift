@@ -58,7 +58,7 @@ struct ProfileDetailView: View {
                 LabeledContent("法定退休年月", value: profile?.retirement ?? "待完善")
             } header: { Text("个人信息") } footer: {
                 Text("按中国大陆普通职工渐进式延迟退休规则计算，不含特殊工种等提前退休情形。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             CurrentEmploymentSection()
         }
     }
@@ -72,15 +72,15 @@ struct ProfileDetailView: View {
                     .padding(.vertical, 8)
             } header: { Text("当前财富合计") } footer: {
                 Text("总额汇总现金、已归属股票与理财；未归属部分不计入。外币股票按手动汇率折算人民币。")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("现金") {
                 LabeledContent("当前金额", value: ProfileRules.money(profile?.cashCents))
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("股票") {
                 LabeledContent("已归属价值", value: ProfileRules.money(StockRules.portfolio(stocks, profile: profile, on: clock.now)))
                 LabeledContent("未归属价值", value: ProfileRules.money(StockRules.portfolio(stocks, profile: profile, on: clock.now, unvested: true)))
                 Button("前往财富管理股票") { navigation.openStocks() }
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             Section("理财") {
                 LabeledContent("当前估算金额", value: ProfileRules.money(profile?.investmentValue(on: clock.now)))
                 LabeledContent("初始本金", value: ProfileRules.money(profile?.investmentCents))
@@ -88,7 +88,7 @@ struct ProfileDetailView: View {
                 LabeledContent("年化收益率", value: profile?.investmentAnnualReturnBasisPoints.map {
                     "\(ProfileRules.input($0))%"
                 } ?? "待填写")
-            }
+            }.listRowBackground(AppTheme.cardBackground)
         }
     }
 }

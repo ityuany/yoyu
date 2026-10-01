@@ -27,19 +27,19 @@ struct LiabilityOverviewView: View {
     var body: some View {
         List {
             if isExample {
-                Section { Label("示例账本 · 不写入你的真实记录", systemImage: "sparkles").font(.subheadline) }
+                Section { Label("示例账本 · 不写入你的真实记录", systemImage: "sparkles").font(.subheadline) }.listRowBackground(AppTheme.cardBackground)
             }
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("当前负债").font(.subheadline).foregroundStyle(.secondary)
+                    Text("当前负债").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     DashboardAmount(value: accounts.isEmpty ? "待录入" : LiabilityRules.total(accounts, on: clock.now).map { ProfileRules.money($0) } ?? "待核对")
                     Text("房贷按已确认余额；自动分期按日期预计正常还款，手动分期按已还期数。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }.padding(.vertical, 8)
                 NavigationLink { DebtScheduleView(accounts: accounts) } label: {
                     Label("每月已知还款", systemImage: "calendar")
                 }.disabled(accounts.isEmpty)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             ForEach(LiabilityKind.allCases.filter { filter == nil || $0 == filter }) { kind in
                 Section(kind.title) {
                     let group = accounts.filter { $0.kind == kind }
@@ -59,20 +59,20 @@ struct LiabilityOverviewView: View {
                                     Label(account.name, systemImage: kind.icon)
                                     Spacer()
                                     Text(account.snapshot.flatMap { LiabilityRules.balance($0, kind: kind, on: clock.now) }.map { ProfileRules.money($0, compact: true) } ?? "待核对")
-                                        .foregroundStyle(.secondary).monospacedDigit()
+                                        .foregroundStyle(AppTheme.secondaryText).monospacedDigit()
                                 }
                             }
                         }
                     }
                     Button { adding = kind } label: { Label("添加\(kind.title)", systemImage: "plus") }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
             if !isExample && accounts.isEmpty {
                 Section {
                     NavigationLink { LiabilityExampleView() } label: {
                         Label("先看组合贷与分期示例", systemImage: "eye")
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }.neutralPageBackground()
         .navigationTitle(filter?.title ?? "负债管理")

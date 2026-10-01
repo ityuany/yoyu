@@ -14,35 +14,35 @@ struct BonusTimelineView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("累计年终收入").font(.subheadline).foregroundStyle(.secondary)
+                    Text("累计年终收入").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     Text(ordered.isEmpty ? "暂无记录" : ProfileRules.money(BonusRules.total(bonuses, for: job)))
                         .font(.largeTitle.weight(.semibold)).monospacedDigit()
                     Text(ordered.isEmpty ? "仅统计实际收到的税前年终奖" : pendingCount == 0 ? "已确认的税前实发金额" : "\(pendingCount) 笔旧记录待确认年份，暂未计入")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                 }
                 .padding(.vertical, 8)
-            }
+            }.listRowBackground(AppTheme.cardBackground)
             if ordered.isEmpty {
                 Section {
                     VStack(spacing: 12) {
                         Image(systemName: "gift")
                             .font(.title2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                             .frame(width: 56, height: 56)
-                            .background(Color.secondary.opacity(0.1), in: Circle())
+                            .background(AppTheme.secondaryText.opacity(0.1), in: Circle())
                             .accessibilityHidden(true)
                         Text("还没有年终奖记录")
                             .font(.headline)
                         Text("收到税前年终奖后，点右上角记录。")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 22)
                 } footer: {
                     Text("这家企业没有发放年终奖时，无需添加记录。")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             } else {
                 Section("年终奖时间轴") {
                     ForEach(Array(ordered.enumerated()), id: \.element.id) { index, payment in
@@ -59,7 +59,7 @@ struct BonusTimelineView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .neutralPageBackground()

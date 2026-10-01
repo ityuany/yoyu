@@ -14,15 +14,15 @@ struct EquityPositionEditor: View {
             Form {
                 Section {
                     equityField("期初持股（股）", text: $initial)
-                } footer: { Text("只填写未包含在授予批次中的已归属持股。补录历史授予时，请同步扣除对应期初数量，避免重复。") }
+                } footer: { Text("只填写未包含在授予批次中的已归属持股。补录历史授予时，请同步扣除对应期初数量，避免重复。") }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     equityField("本次卖出／转出（股）", text: $reduction)
-                } footer: { Text("填写本次减少的持股数量，按今天记录。不会修改授予和归属历史。无需减少时留空。") }
+                } footer: { Text("填写本次减少的持股数量，按今天记录。不会修改授予和归属历史。无需减少时留空。") }.listRowBackground(AppTheme.cardBackground)
                 Section("持仓减少记录") {
                     ForEach(holding.disposals ?? []) { disposal in
                         LabeledContent(CareerRules.dateLabel(disposal.date), value: "−\(ProfileRules.input(disposal.shares)) 股")
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }.neutralPageBackground().navigationTitle("持仓调整")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }

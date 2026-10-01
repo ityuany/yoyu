@@ -20,26 +20,26 @@ struct SocialInsuranceLimitsView: View {
             Section {
                 Text("每条记录从生效月份开始沿用，直到下一条记录。金额为每月缴费基数的法定范围，不代表个人实际缴费基数。")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+                    .foregroundStyle(AppTheme.secondaryText)
+            }.listRowBackground(AppTheme.cardBackground)
             ForEach(visibleRecords) { record in
                 Button { editing = record } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(monthLabel(record.effectiveMonth))
                                 .font(.headline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(AppTheme.primaryText)
                             Spacer()
                             Text("\(record.evidence.symbol) \(record.evidence.title)")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                         HStack(spacing: 16) {
                             Text("下限 \(ProfileRules.money(record.lowerCents))")
                             Text("上限 \(ProfileRules.money(record.upperCents))")
                         }
                         .font(.subheadline)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppTheme.primaryText)
                     }
                     .padding(.vertical, 4)
                     .contentShape(Rectangle())
@@ -108,31 +108,31 @@ private struct SocialInsuranceLimitEditor: View {
                         showingMonthPicker = true
                     } label: {
                         HStack {
-                            Text("生效年月").foregroundStyle(.primary)
+                            Text("生效年月").foregroundStyle(AppTheme.primaryText)
                             Spacer()
-                            Text("\(year) 年 \(month) 月").foregroundStyle(.secondary)
+                            Text("\(year) 年 \(month) 月").foregroundStyle(AppTheme.secondaryText)
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section("月缴费基数") {
                     amountRow("下限", text: $lower, identifier: "socialLimit.lower")
                     amountRow("上限", text: $upper, identifier: "socialLimit.upper")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     Picker("核实状态", selection: $evidence) {
                         ForEach(LimitEvidence.allCases) { value in
                             Text("\(value.symbol) \(value.title)").tag(value)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 if let validation {
-                    Section { Text(validation).foregroundStyle(.red) }
+                    Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground)
                 }
                 if record != nil {
                     Section {
                         Button("删除这条标准", role: .destructive) { confirmingDeletion = true }
-                    }
+                    }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()
@@ -188,7 +188,7 @@ private struct SocialInsuranceLimitEditor: View {
                     .multilineTextAlignment(.trailing)
                     .accessibilityLabel(title)
                     .accessibilityIdentifier(identifier)
-                Text("元/月").foregroundStyle(.secondary)
+                Text("元/月").foregroundStyle(AppTheme.secondaryText)
             }
         }
     }

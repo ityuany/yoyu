@@ -15,8 +15,8 @@ struct ContentView: View {
                             TodayView()
                         } else if tab == .wealth {
                             WealthView()
-                        } else if tab == .forecast {
-                            RunwayView()
+                        } else if tab == .analysis {
+                            AnalysisView()
                         } else {
                             ProfileView()
                         }
@@ -25,7 +25,7 @@ struct ContentView: View {
                 }
             }
         }
-        .tint(DashboardStyle.tabSelection)
+        .tint(navigation.selectedTab == .analysis ? AnalysisOverviewStyle.accent : DashboardStyle.tabSelection)
         .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         .environment(careerClock)
         .environment(navigation)

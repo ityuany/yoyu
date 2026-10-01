@@ -44,35 +44,35 @@ struct ContributionEditor: View {
                         showingMonthPicker = true
                     } label: {
                         HStack {
-                            Text("生效月份").foregroundStyle(.primary)
+                            Text("生效月份").foregroundStyle(AppTheme.primaryText)
                             Spacer()
                             Text(effectiveMonthLabel)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                         }
                     }
                     .accessibilityIdentifier("contribution.effectiveMonth")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 if kind == .pension {
                 Section("养老金") {
                     number("缴纳基数", text: $pensionBase, unit: "元/月")
                     number("个人比例", text: $pensionRate, unit: "%")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 }
                 if kind == .housing {
                 Section("公积金") {
                     number("缴纳基数", text: $housingBase, unit: "元/月")
                     number("个人比例", text: $housingRate, unit: "%")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 }
                 Section {} footer: {
                     Text("从生效月份起按这组基数和比例自动累计，直到下一次调整或任职结束。")
-                }
-                if let validation { Section { Text(validation).foregroundStyle(.red) } }
+                }.listRowBackground(AppTheme.cardBackground)
+                if let validation { Section { Text(validation).foregroundStyle(AppTheme.error) }.listRowBackground(AppTheme.cardBackground) }
                 if record != nil {
-                    Section { Button("删除\(kind.title)记录", role: .destructive) { confirmingDeletion = true } }
+                    Section { Button("删除\(kind.title)记录", role: .destructive) { confirmingDeletion = true } }.listRowBackground(AppTheme.cardBackground)
                 }
             }
             .neutralPageBackground()
@@ -119,7 +119,7 @@ struct ContributionEditor: View {
                     #if os(iOS)
                     .keyboardType(.decimalPad)
                     #endif
-                Text(unit).foregroundStyle(.secondary)
+                Text(unit).foregroundStyle(AppTheme.secondaryText)
             }
         } label: { Text(title) }
     }

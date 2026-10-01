@@ -46,13 +46,13 @@ struct CompensationTimelineRow: View {
                     if !note.isEmpty {
                         Text(note)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                             .padding(.bottom, 12)
                     } else {
                         Color.clear.frame(height: 16)
                     }
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }

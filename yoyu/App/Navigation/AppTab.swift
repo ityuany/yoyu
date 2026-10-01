@@ -4,7 +4,7 @@ import SwiftData
 enum AppTab: CaseIterable, Identifiable {
     case today
     case wealth
-    case forecast
+    case analysis
     case profile
 
     var id: Self { self }
@@ -13,7 +13,7 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "今日"
         case .wealth: "财富"
-        case .forecast: "预测"
+        case .analysis: "分析"
         case .profile: "我的"
         }
     }
@@ -22,7 +22,7 @@ enum AppTab: CaseIterable, Identifiable {
         switch self {
         case .today: "sun.max"
         case .wealth: "wallet.bifold"
-        case .forecast: "chart.line.uptrend.xyaxis"
+        case .analysis: "chart.bar.xaxis"
         case .profile: "person.crop.circle"
         }
     }

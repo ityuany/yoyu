@@ -47,7 +47,7 @@ struct ExpenseHomeSection: View {
                 ledger
                     .padding(.horizontal, 22)
             } else {
-                Section { rows } header: { Text("预计支出") } footer: { Text(footerText) }
+                Section { rows } header: { Text("预计支出") } footer: { Text(footerText) }.listRowBackground(AppTheme.cardBackground)
             }
         }
         .sheet(isPresented: $adding) { ExpenseEditor() }
@@ -76,11 +76,11 @@ struct ExpenseHomeSection: View {
             }
             if accounts.isEmpty && records.isEmpty {
                 Text("安排生活费、租金或还款，让每月支出心中有数。")
-                    .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 18)
+                    .font(.subheadline).foregroundStyle(AppTheme.secondaryText).padding(.vertical, 18)
             }
             if ExpectedExpenseRules.missingBills(accounts) {
                 Label("部分账单待补全，仅计入已知金额", systemImage: "exclamationmark.circle")
-                    .font(.caption).foregroundStyle(.secondary).padding(.top, 10)
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText).padding(.top, 10)
             }
             HStack {
                 NavigationLink { ExpectedExpenseView() } label: {
@@ -97,7 +97,7 @@ struct ExpenseHomeSection: View {
             .font(.subheadline)
             .padding(.top, 8)
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(AppTheme.primaryText)
         .buttonStyle(.plain)
     }
 
@@ -105,7 +105,7 @@ struct ExpenseHomeSection: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("预测支出").font(.headline)
-                Text("按已有计划预计").font(.caption).foregroundStyle(.secondary)
+                Text("按已有计划预计").font(.caption).foregroundStyle(AppTheme.secondaryText)
             }
             Spacer(minLength: 12)
             Text(ExpectedExpenseRules.total(expenses: records, liabilities: accounts, in: clock.now).map { ProfileRules.money($0) } ?? "待核对")
@@ -122,10 +122,10 @@ struct ExpenseHomeSection: View {
     private func ledgerRow(_ title: String, detail: String, icon: String, amount: Int64?) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.subheadline).foregroundStyle(.secondary).frame(width: 22)
+                Image(systemName: icon).font(.subheadline).foregroundStyle(AppTheme.secondaryText).frame(width: 22)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.subheadline)
-                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                    Text(detail).font(.caption).foregroundStyle(AppTheme.secondaryText)
                 }
                 Spacer(minLength: 8)
                 Text(amount.map { ProfileRules.money($0) } ?? "待核对")
@@ -159,7 +159,7 @@ struct ExpenseHomeSection: View {
                     VStack(alignment: .leading) {
                         ExpenseRow(record: record, date: clock.now)
                         if ExpectedExpenseRules.isCovered(record, liabilities: accounts) {
-                            Text("已包含在负债还款中").font(.caption).foregroundStyle(.secondary)
+                            Text("已包含在负债还款中").font(.caption).foregroundStyle(AppTheme.secondaryText)
                         }
                     }
                 }
@@ -167,7 +167,7 @@ struct ExpenseHomeSection: View {
             if cardLayout && (!accounts.isEmpty || !records.isEmpty) { Divider() }
             if records.isEmpty {
                 Text("还可添加生活费、租金、保险等日常开支。")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
             }
             NavigationLink("查看全部预计支出") { ExpectedExpenseView() }
             Button { adding = true } label: { Label("添加日常开支", systemImage: "plus") }

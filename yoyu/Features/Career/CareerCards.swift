@@ -15,10 +15,10 @@ struct EmploymentSalaryTrend {
     }
 
     var color: Color {
-        guard let current, let previous, previous > 0 else { return .gray }
-        if current > previous { return .red }
-        if current < previous { return .green }
-        return .orange
+        guard let current, let previous, previous > 0 else { return AppTheme.secondaryText }
+        if current > previous { return AppTheme.error }
+        if current < previous { return AppTheme.success }
+        return AppTheme.warning
     }
 
     var label: String {
@@ -70,7 +70,7 @@ struct EmploymentTimelineRow: View {
                     .fill(LinearGradient(
                         colors: isLast
                             ? [trend.color.opacity(0.65), trend.color.opacity(0)]
-                            : [trend.color.opacity(0.65), (nextTrend?.color ?? .gray).opacity(0.65)],
+                            : [trend.color.opacity(0.65), (nextTrend?.color ?? AppTheme.secondaryText).opacity(0.65)],
                         startPoint: .top,
                         endPoint: .bottom
                     ))
@@ -101,12 +101,12 @@ struct EmploymentTimelineRow: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("在职")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                             Text(tenureLabel)
                                 .font(.subheadline.weight(.semibold))
                             Text("月薪变化")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                             Text("\(salaryLabel(entrySalary)) — \(salaryLabel(latestSalary))")
                                 .font(.subheadline.weight(.semibold))
                                 .monospacedDigit()
@@ -133,7 +133,7 @@ struct EmploymentTimelineRow: View {
             .padding(.bottom, isLast ? 28 : 0)
         }
         .padding(.horizontal, 16)
-        .foregroundStyle(.primary)
+        .foregroundStyle(AppTheme.primaryText)
     }
 
     private var bookShape: UnevenRoundedRectangle {
@@ -141,11 +141,7 @@ struct EmploymentTimelineRow: View {
                                bottomTrailingRadius: 32, topTrailingRadius: 32)
     }
 
-    private var bookColor: Color {
-        colorScheme == .light
-            ? Color(red: 247 / 255, green: 245 / 255, blue: 239 / 255)
-            : Color(red: 37 / 255, green: 35 / 255, blue: 31 / 255)
-    }
+    private var bookColor: Color { AppTheme.careerBookBackground }
 
     private var tenureLabel: String {
         let calendar = ProfileRules.calendar

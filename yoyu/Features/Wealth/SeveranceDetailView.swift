@@ -2,17 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct SeveranceDetailView: View {
-    @Query private var runwaySettings: [RunwaySettings]
     @Query private var jobs: [Employment]
     @Query private var stages: [SalaryStage]
     @Query private var bonuses: [BonusPayment]
     @Environment(CareerClock.self) private var clock
     @State private var editing = false
 
-    private var compensationDate: Date {
-        guard let p = RunwayStore.active(runwaySettings), p.mode != .employed, let date = p.lossDate, date >= ProfileRules.calendar.startOfDay(for: clock.now) else { return clock.now }
-        return date
-    }
+    // 财富按当前日期估算；分析中的失业日期只用于预测。
+    private var compensationDate: Date { clock.now }
     private var scenario: SeveranceScenario { SeveranceScenario(jobs: jobs, stages: stages, bonuses: bonuses, now: compensationDate, employmentDate: clock.now) }
     var body: some View {
         List {
@@ -24,7 +21,7 @@ struct SeveranceDetailView: View {
                         AdaptiveValueRow(title: "补偿方案 \(plan.title)",
                                          value: scenario.estimate(for: plan, on: compensationDate).map { ProfileRules.money($0.amountCents) } ?? "待完善")
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
 
                 Section("自动测算依据") {
                     let baseEstimate = scenario.estimate(for: .n, on: compensationDate)
@@ -38,16 +35,16 @@ struct SeveranceDetailView: View {
                     AdaptiveValueRow(title: "实际采用补偿年限", value: baseEstimate?.tenureHundredths.map { ProfileRules.input($0) + " 年" } ?? "待完善")
                     if baseEstimate?.isDoubleCapped == true {
                         Text("已应用双封顶：基数按三倍社平，补偿年限最多 12 年。")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(AppTheme.secondaryText)
                     }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 Section {
                     if scenario.salaryCents == nil || scenario.noticeSalaryCents == nil || job.start == nil {
                         Text("测算资料不足，请补充当前企业的入职月份及覆盖计算期间的薪资记录。")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                     NavigationLink("查看职业履历") { CareerView(destination: .history) }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
 
                 Section {
                     Text("按测算日期被裁员估算，N 按 N × 月薪基数计算，N+1 再加额外一个月工资，2N 按 N × 月薪基数 × 2 计算。N 按本企业整年工龄及余期估算：不足半年计 0.5，满半年计 1。")
@@ -58,14 +55,14 @@ struct SeveranceDetailView: View {
                     Link("劳动合同法实施条例", destination: URL(string: "https://www.mohrss.gov.cn/xxgk2020/fdzdgknr/zcfg/fg/202011/t20201103_394939_wap.html")!)
                 } header: {
                     Text("计算口径")
-                }
+                }.listRowBackground(AppTheme.cardBackground)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.secondaryText)
             } else {
                 Section {
                     ContentUnavailableView("当前任职待完善", systemImage: "building.2", description: Text("补偿测算需要一段明确的当前任职。"))
                     NavigationLink("管理企业履历") { CareerView(destination: .history) }
-                }
+                }.listRowBackground(AppTheme.cardBackground)
             }
         }.neutralPageBackground()
         .navigationTitle("补偿")
