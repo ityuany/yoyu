@@ -4,7 +4,9 @@ import SwiftData
 enum LimitEvidence: String, CaseIterable, Identifiable {
     case official, provisional, unverified
 
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String {
         switch self {
         case .official: "正式"
@@ -12,6 +14,7 @@ enum LimitEvidence: String, CaseIterable, Identifiable {
         case .unverified: "待核"
         }
     }
+    /// 状态符号。
     var symbol: String {
         switch self {
         case .official: "✅"
@@ -23,32 +26,47 @@ enum LimitEvidence: String, CaseIterable, Identifiable {
 
 @Model
 final class SocialInsuranceLimit {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 适用城市。
     var city: String = "南京市"
+    /// 生效月份，以月初日期表示。
     var effectiveMonth: Date = Date()
+    /// 缴纳基数下限，单位为分。
     var lowerCents: Int64 = 0
+    /// 缴纳基数上限，单位为分。
     var upperCents: Int64 = 0
+    /// 资料依据状态的原始枚举值。
     var evidenceRaw: String = LimitEvidence.unverified.rawValue
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
 
     init() {}
+    /// 资料依据状态。
     var evidence: LimitEvidence { LimitEvidence(rawValue: evidenceRaw) ?? .unverified }
 }
 
 /// 与默认记录一同同步，避免用户删除内置记录后下次启动又被补回。
 @Model
 final class SocialInsuranceLimitSeedState {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = "nanjing-limits-v1"
+    /// 默认资料导入时间。
     var importedAt: Date = Date()
     init() {}
 }
 
 enum SocialInsuranceLimitDefaults {
     struct Entry {
+        /// 年份。
         let year: Int
+        /// 月份。
         let month: Int
+        /// 下限金额，单位为元。
         let lower: Int64
+        /// 上限金额，单位为元。
         let upper: Int64
+        /// 资料依据状态。
         let evidence: LimitEvidence
     }
 

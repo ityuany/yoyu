@@ -50,7 +50,7 @@ struct ExpenseHomeSection: View {
                         detail: "\(account.kind?.title ?? "负债")还款", icon: account.kind?.icon ?? "creditcard",
                         amount: ExpectedExpenseRules.repayment(account, in: clock.now))
         }
-        let expenses = ExpenseRules.records(records).map { record in
+        let expenses = ExpectedExpenseRules.uncoveredExpenses(records, liabilities: accounts).map { record in
             PreviewItem(sourceID: record.id, isRepayment: false, title: record.plan?.name ?? "开支记录待核对",
                         detail: record.plan.map { $0.estimated ? "预估开支" : "固定开支" } ?? "待核对",
                         icon: "repeat", amount: record.plan.flatMap { ExpenseRules.amount($0, in: clock.now) })
@@ -180,7 +180,14 @@ struct ExpenseHomeSection: View {
                 }
             }
             ForEach(Array(ExpenseRules.records(records).prefix(3))) { record in
-                NavigationLink { ExpenseDetailView(recordID: record.id) } label: { ExpenseRow(record: record, date: clock.now) }
+                NavigationLink { ExpenseDetailView(recordID: record.id) } label: {
+                    VStack(alignment: .leading) {
+                        ExpenseRow(record: record, date: clock.now)
+                        if ExpectedExpenseRules.isCovered(record, liabilities: accounts) {
+                            Text("已包含在负债还款中").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             if cardLayout && (!accounts.isEmpty || !records.isEmpty) { Divider() }
             if records.isEmpty {
@@ -250,7 +257,9 @@ struct ExpectedExpenseView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             ExpenseRow(record: record, date: month, monthView: true)
                             if let plan = record.plan {
-                                Text("当月计入 \(ExpenseRules.amount(plan, in: month).map { ProfileRules.money($0) } ?? "待核对")")
+                                Text(ExpectedExpenseRules.isCovered(record, liabilities: accounts)
+                                     ? "已包含在负债还款中，本处不重复计入"
+                                     : "当月计入 \(ExpenseRules.amount(plan, in: month).map { ProfileRules.money($0) } ?? "待核对")")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -273,6 +282,7 @@ struct ExpenseListView: View {
     var isExample = false
     @Environment(\.modelContext) private var context
     @Query private var records: [RecurringExpense]
+    @Query private var liabilities: [LiabilityAccount]
     @State private var month = ExpenseRules.month(Date())
     @State private var adding = false
     private var items: [RecurringExpense] { ExpenseRules.records(records) }
@@ -291,7 +301,7 @@ struct ExpenseListView: View {
                 }.buttonStyle(.borderless)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("当月日常开支 · 含预估").font(.subheadline).foregroundStyle(.secondary)
-                    DashboardAmount(value: ExpenseRules.total(items, in: month).map { ProfileRules.money($0) } ?? "待核对")
+                    DashboardAmount(value: ExpenseRules.total(ExpectedExpenseRules.uncoveredExpenses(items, liabilities: liabilities), in: month).map { ProfileRules.money($0) } ?? "待核对")
                 }.padding(.vertical, 6)
             } footer: { Text("仅汇总当月日常开支，不含房贷与信用卡还款，不扣减现金余额。") }
             if items.isEmpty {
@@ -303,7 +313,9 @@ struct ExpenseListView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             ExpenseRow(record: record, date: month, monthView: true)
                             if let plan = record.plan {
-                                Text("当月计入 \(ExpenseRules.amount(plan, in: month).map { ProfileRules.money($0) } ?? "待核对") · \(ExpenseRules.period(plan))")
+                                Text((ExpectedExpenseRules.isCovered(record, liabilities: liabilities)
+                                      ? "已包含在负债还款中，本处不重复计入"
+                                      : "当月计入 \(ExpenseRules.amount(plan, in: month).map { ProfileRules.money($0) } ?? "待核对")") + " · \(ExpenseRules.period(plan))")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -321,6 +333,7 @@ struct ExpenseListView: View {
 struct ExpenseDetailView: View {
     let recordID: String
     @Query private var records: [RecurringExpense]
+    @Query private var liabilities: [LiabilityAccount]
     @Environment(CareerClock.self) private var clock
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -346,10 +359,15 @@ struct ExpenseDetailView: View {
                         LabeledContent("工作中断时", value: plan.pausesDuringWorkBreak == true ? "暂停，复工后继续" : "照常计入")
                             .accessibilityIdentifier("expense.workBreakBehavior")
                     }
+                    if ExpectedExpenseRules.isCovered(record, liabilities: liabilities) {
+                        Section {
+                            Text("已包含在负债还款中；预计支出汇总和生存时长预测只计负债还款。")
+                        }
+                    }
                     Section {
                         ForEach(0..<12, id: \.self) { offset in
                             let date = ExpenseRules.calendar.date(byAdding: .month, value: offset, to: ExpenseRules.month(clock.now))!
-                            LabeledContent(ExpenseRules.monthLabel(date), value: ExpenseRules.amount(plan, in: date).map { ProfileRules.money($0) } ?? "待核对")
+                            LabeledContent(ExpenseRules.monthLabel(date), value: ExpectedExpenseRules.isCovered(record, liabilities: liabilities) ? "已计入负债" : (ExpenseRules.amount(plan, in: date).map { ProfileRules.money($0) } ?? "待核对"))
                                 .monospacedDigit()
                         }
                     } header: { Text("未来 12 个月") } footer: {
@@ -378,6 +396,7 @@ struct ExpenseDetailView: View {
 
 /// A separate in-memory container allows exploration without changing the user's plans.
 struct ExpenseExampleView: View {
+    var showsDuplicateExample = false
     @State private var container: ModelContainer?
     @State private var failure: String?
     var body: some View {
@@ -388,7 +407,7 @@ struct ExpenseExampleView: View {
         }.task {
             guard container == nil else { return }
             do {
-                let schema = Schema([RecurringExpense.self])
+                let schema = Schema([RecurringExpense.self, LiabilityAccount.self])
                 let sample = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)])
                 let first = ExpenseRules.month(Date())
                 let last = ExpenseRules.calendar.date(byAdding: .day, value: -1, to: ExpenseRules.calendar.date(byAdding: .month, value: 3, to: first)!)!
@@ -397,6 +416,18 @@ struct ExpenseExampleView: View {
                     ExpensePlan(name: "异地租房", amount: 2000_00, estimated: false, start: first, end: last, spreadAcrossMonth: false, dueDay: 1),
                     ExpensePlan(name: "软件订阅", amount: 98_00, estimated: false, start: first, spreadAcrossMonth: false, dueDay: 8)
                 ] { try ExpenseStore.save(plan, record: nil, context: sample.mainContext) }
+                if showsDuplicateExample {
+                    let mortgage = LiabilityAccount()
+                    mortgage.name = "房贷"
+                    mortgage.apply(LiabilitySnapshot(
+                        balanceDate: ExpenseRules.calendar.date(byAdding: .day, value: -1, to: first)!,
+                        mortgages: [.init(principal: 12000_00, annualPercent: 0, months: 12,
+                                          nextDate: first, dueDay: 10)]))
+                    sample.mainContext.insert(mortgage)
+                    try ExpenseStore.save(ExpensePlan(name: "房贷还款副本", amount: 1000_00,
+                        start: first, spreadAcrossMonth: false, dueDay: 10,
+                        coveredByLiabilityID: mortgage.id), record: nil, context: sample.mainContext)
+                }
                 container = sample
             } catch { failure = error.localizedDescription }
         }

@@ -6,7 +6,9 @@ enum SeverancePlan: String, Codable, CaseIterable, Identifiable {
     // 旧自定义金额仅保留读取兼容，不再提供新建入口。
     static let selectable: [Self] = [.n, .nPlusOne, .twoN]
 
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String {
         switch self {
         case .n: "N"
@@ -18,14 +20,21 @@ enum SeverancePlan: String, Codable, CaseIterable, Identifiable {
 }
 
 struct SeveranceSettings: Codable, Equatable {
+    /// 方案或配置。
     var plan: SeverancePlan = .nPlusOne
+    /// 补偿工资基数，单位为分。
     var baseSalaryCents: Int64?
+    /// 代通知金工资基数，单位为分。
     var noticeSalaryCents: Int64?
+    /// 工龄，单位为百分之一年。
     var tenureHundredths: Int64?
+    /// 自定义补偿金额，单位为分。
     var customAmountCents: Int64?
+    /// 地区三倍社平月工资标准，单位为分。
     var tripleAverageSalaryCents: Int64?
 
     // 保留所选预测方案；旧手动基数与年限仍统一从职业履历推算。
+    /// 是否自动推进已还期数，空值保留旧版手动进度语义。
     var automatic: Self {
         var result = Self(plan: SeverancePlan.selectable.contains(plan) ? plan : .nPlusOne)
         result.tripleAverageSalaryCents = tripleAverageSalaryCents
@@ -36,10 +45,15 @@ struct SeveranceSettings: Codable, Equatable {
 /// 可调整的税前情景估算；地区三倍社平标准由用户提供。
 enum SeveranceRules {
     struct Estimate {
+        /// 金额，单位为分。
         let amountCents: Int64
+        /// 工龄，单位为百分之一年。
         let tenureHundredths: Int64?
+        /// 补偿工资基数，单位为分。
         let baseSalaryCents: Int64?
+        /// 代通知金工资基数，单位为分。
         let noticeSalaryCents: Int64?
+        /// 是否触发高工资补偿基数及年限的双重上限。
         var isDoubleCapped: Bool = false
     }
 
@@ -104,6 +118,12 @@ enum SeveranceRules {
     }
 
     static func settings(for job: Employment) -> SeveranceSettings? {
+        if job.hasStructuredSeverance {
+            guard let plan = SeverancePlan(rawValue: job.severancePlanRaw) else { return nil }
+            return SeveranceSettings(plan: plan, baseSalaryCents: job.severanceBaseSalaryCents,
+                noticeSalaryCents: job.severanceNoticeSalaryCents, tenureHundredths: job.severanceTenureHundredths,
+                customAmountCents: job.severanceCustomAmountCents, tripleAverageSalaryCents: job.severanceTripleAverageSalaryCents)
+        }
         guard let data = job.severanceData else { return SeveranceSettings() }
         return try? JSONDecoder().decode(SeveranceSettings.self, from: data)
     }
@@ -166,5 +186,19 @@ enum SeveranceRules {
     private static func validMoney(_ value: Int64?) -> Int64? {
         guard let value, (0...ProfileRules.maximumMoneyCents).contains(value) else { return nil }
         return value
+    }
+}
+
+
+extension Employment {
+    /// 将补偿草稿写入独立字段，旧 JSON 仅保留作兼容资料。
+    func applySeverance(_ settings: SeveranceSettings) {
+        severancePlanRaw = settings.plan.rawValue
+        severanceBaseSalaryCents = settings.baseSalaryCents
+        severanceNoticeSalaryCents = settings.noticeSalaryCents
+        severanceTenureHundredths = settings.tenureHundredths
+        severanceCustomAmountCents = settings.customAmountCents
+        severanceTripleAverageSalaryCents = settings.tripleAverageSalaryCents
+        hasStructuredSeverance = true
     }
 }

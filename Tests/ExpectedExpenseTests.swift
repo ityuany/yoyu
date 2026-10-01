@@ -11,6 +11,11 @@ import Foundation
         let expense = RecurringExpense()
         expense.planData = try JSONEncoder().encode(ExpensePlan(name: "生活费", amount: 3000_00, start: date))
         precondition(ExpectedExpenseRules.total(expenses: [expense], liabilities: [mortgage, mortgage], in: date) == 4000_00)
+        let duplicate = RecurringExpense()
+        duplicate.planData = try JSONEncoder().encode(ExpensePlan(name: "房贷还款", amount: 1000_00, start: date, spreadAcrossMonth: false, dueDay: 10, coveredByLiabilityID: mortgage.id))
+        precondition(ExpectedExpenseRules.total(expenses: [expense, duplicate], liabilities: [mortgage], in: date) == 4000_00)
+        precondition(ExpectedExpenseRules.uncoveredExpenses([expense, duplicate], liabilities: [mortgage]).map(\.id) == [expense.id])
+        precondition(ExpectedExpenseRules.total(expenses: [duplicate], liabilities: [], in: date) == 1000_00)
         precondition(ExpectedExpenseRules.total(expenses: [], liabilities: [mortgage], in: ProfileRules.date(2027, 9, 1)) == 0)
         let card = LiabilityAccount(); card.kindRaw = "creditCard"
         let installment = CardInstallment(name: "分期", principal: 1200_00, months: 12, nextDate: date, dueDay: 10)

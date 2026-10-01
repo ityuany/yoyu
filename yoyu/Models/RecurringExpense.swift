@@ -3,41 +3,101 @@ import SwiftData
 
 nonisolated enum ExpenseFrequency: Int, Codable, CaseIterable, Identifiable {
     case monthly = 1, quarterly = 3, yearly = 12
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: Int { rawValue }
+    /// 展示标题。
     var title: String { switch self { case .monthly: "每月"; case .quarterly: "每季度"; case .yearly: "每年" } }
+    /// 展示单位。
     var unit: String { switch self { case .monthly: "月"; case .quarterly: "季度"; case .yearly: "年" } }
 }
 
 nonisolated struct ExpensePlan: Codable {
+    /// 名称。
     var name = ""
+    /// 支出金额，单位为分。
     var amount: Int64 = 0
+    /// 该金额是否为估算值。
     var estimated = true
+    /// 支出发生频率。
     var frequency: ExpenseFrequency = .monthly
+    /// 开始日期。
     var start = Date()
+    /// 结束日期，空值表示尚未结束。
     var end: Date?
+    /// 是否按月内天数分摊发生金额。
     var spreadAcrossMonth = true
+    /// 每月扣款或还款日，短月份按月末处理。
     var dueDay = 1
+    /// 用户备注。
     var note = ""
+    // An explicitly identified duplicate of a liability schedule. Optional for old records.
+    /// 已覆盖该支出的负债业务标识，用于防止重复计算。
+    var coveredByLiabilityID: String? = nil
     // Optional so plans saved before this setting remain decodable and continue normally.
+    /// 工作中断期间是否暂停，空值按旧版照常发生处理。
     var pausesDuringWorkBreak: Bool? = nil
+    /// 工作中断期间的支出行为说明。
     var workBreakBehavior: String { pausesDuringWorkBreak == true ? "工作中断期间暂停" : "工作中断期间照常" }
 }
 
 @Model final class RecurringExpense {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 旧版预计支出 JSON，仅用于兼容读取和迁移。
     var planData: Data?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
+    /// 配置是否已保存为独立字段。
+    var hasStructuredPlan: Bool = false
+    /// 名称。
+    var name: String = ""
+    /// 支出金额，单位为分。
+    var amount: Int64 = 0
+    /// 该金额是否为估算值。
+    var estimated: Bool = true
+    /// 发生频率对应的月数，1 为每月、3 为每季度、12 为每年。
+    var frequencyRaw: Int = 1
+    /// 开始日期。
+    var start: Date = Date()
+    /// 结束日期，空值表示尚未结束。
+    var end: Date?
+    /// 是否按月内天数分摊发生金额。
+    var spreadAcrossMonth: Bool = true
+    /// 每月扣款或还款日，短月份按月末处理。
+    var dueDay: Int = 1
+    /// 用户备注。
+    var note: String = ""
+    /// 已覆盖该支出的负债业务标识，用于防止重复计算。
+    var coveredByLiabilityID: String?
+    /// 工作中断期间是否暂停，空值按旧版照常发生处理。
+    var pausesDuringWorkBreak: Bool?
     init() {}
+    /// 方案或配置。
     var plan: ExpensePlan? {
+        if hasStructuredPlan {
+            guard let frequency = ExpenseFrequency(rawValue: frequencyRaw) else { return nil }
+            return ExpensePlan(name: name, amount: amount, estimated: estimated, frequency: frequency,
+                start: start, end: end, spreadAcrossMonth: spreadAcrossMonth, dueDay: dueDay,
+                note: note, coveredByLiabilityID: coveredByLiabilityID, pausesDuringWorkBreak: pausesDuringWorkBreak)
+        }
         guard let planData else { return nil }
         return try? JSONDecoder().decode(ExpensePlan.self, from: planData)
+    }
+    func apply(_ plan: ExpensePlan) {
+        name = plan.name; amount = plan.amount; estimated = plan.estimated
+        frequencyRaw = plan.frequency.rawValue; start = plan.start; end = plan.end
+        spreadAcrossMonth = plan.spreadAcrossMonth; dueDay = plan.dueDay; note = plan.note
+        coveredByLiabilityID = plan.coveredByLiabilityID; pausesDuringWorkBreak = plan.pausesDuringWorkBreak
+        hasStructuredPlan = true
     }
 }
 
 /// Scenario input only: inclusive first/last non-working days; nil end means ongoing.
 /// Does not change the stored plan or infer employment from incomplete career records.
 nonisolated struct ExpenseWorkBreak {
+    /// 开始日期。
     var start: Date
+    /// 结束日期，空值表示尚未结束。
     var end: Date?
 
     func contains(_ date: Date) -> Bool {
@@ -49,6 +109,7 @@ nonisolated struct ExpenseWorkBreak {
 }
 
 enum ExpenseRules {
+    /// 业务日期计算采用的日历与时区。
     static var calendar: Calendar { ProfileRules.calendar }
     static func month(_ date: Date) -> Date { calendar.dateInterval(of: .month, for: date)!.start }
     static func dateLabel(_ date: Date) -> String { ProfileRules.dateKey(date).replacingOccurrences(of: "-", with: ".") }

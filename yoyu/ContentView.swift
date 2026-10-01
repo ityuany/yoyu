@@ -19,6 +19,10 @@ import SwiftData
                 NavigationStack { ExpenseExampleView() }
                     .environment(CareerClock())
                     .environment(\.locale, Locale(identifier: "zh_CN"))
+            } else if ProcessInfo.processInfo.arguments.contains("--expense-dedupe-ui-test") {
+                NavigationStack { ExpenseExampleView(showsDuplicateExample: true) }
+                    .environment(CareerClock())
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
             } else if ProcessInfo.processInfo.arguments.contains("--financial-export-ui-test") {
                 FinancialExportTestHost()
 
@@ -75,7 +79,6 @@ enum WealthDestination: Hashable {
 }
 
 @Observable final class AppNavigation {
-    let runwayCache = RunwayCache()
     var selectedTab: AppTab = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--forecast") { return .forecast }

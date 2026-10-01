@@ -3,52 +3,97 @@ import SwiftData
 
 @Model
 final class Employment {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 名称。
     var name: String = ""
+    /// 开始日期。
     var start: Date?
+    /// 结束日期，空值表示尚未结束。
     var end: Date?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
+    /// 是否遵循法定节假日及调休。
     var followsHolidays: Bool = true
+    /// 每周工作日的位掩码。
     var workweekMask: Int = 62
+    /// 上班时间距零点的分钟数。
     var startMinutes: Int = 540
+    /// 下班时间距零点的分钟数。
     var endMinutes: Int = 1080
+    /// 每月发薪日，范围为 1 至 31。
     var salaryPaymentDay: Int = 10
+    /// 旧版补偿配置 JSON，仅用于兼容读取和迁移，新保存不再写入。
     var severanceData: Data?
+    /// 补偿配置是否已保存为独立字段。
+    var hasStructuredSeverance: Bool = false
+    /// 补偿方案的原始枚举值。
+    var severancePlanRaw: String = "nPlusOne"
+    /// 旧手动补偿工资基数，单位为分。
+    var severanceBaseSalaryCents: Int64?
+    /// 旧手动代通知金工资基数，单位为分。
+    var severanceNoticeSalaryCents: Int64?
+    /// 旧手动工龄，单位为百分之一年。
+    var severanceTenureHundredths: Int64?
+    /// 旧自定义补偿金额，单位为分。
+    var severanceCustomAmountCents: Int64?
+    /// 地区三倍社平月工资标准，单位为分。
+    var severanceTripleAverageSalaryCents: Int64?
     init() {}
+    /// 用于界面展示的名称。
     var displayName: String { name.isEmpty ? "企业名称待完善" : name }
+    /// 是否为当前任职。
     var isCurrent: Bool { isCurrent(on: Date()) }
     func isCurrent(on date: Date) -> Bool { (start ?? .distantPast) <= date && end == nil }
 }
 
 @Model
 final class SalaryStage {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 所属任职记录的业务标识。
     var employmentID: String = ""
+    /// 薪资阶段生效日期，空值表示旧资料待核对。
     var effectiveDate: Date?
+    /// 税前月薪，单位为分。
     var salaryCents: Int64?
     // 旧版薪资阶段曾混存缴纳资料；保留字段以兼容已同步数据，不参与缴纳记录展示或计算。
+    /// 个人养老保险缴纳比例，单位为基点，100 基点等于 1%。
     var pensionBasisPoints: Int64?
+    /// 养老保险缴纳基数，单位为分。
     var pensionBaseCents: Int64?
+    /// 个人公积金缴纳比例，单位为基点，100 基点等于 1%。
     var housingBasisPoints: Int64?
+    /// 公积金缴纳基数，单位为分。
     var housingBaseCents: Int64?
     // Read only by the one-time import into BonusPayment. Kept in the store schema
     // so an existing development database can be opened before that import runs.
+    /// 旧年终奖金额，单位为分。
     var bonusCents: Int64?
+    /// 旧年终奖发放月份。
     var bonusMonth: Int = 12
+    /// 调整原因。
     var reason: String = ""
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
     init() {}
 }
 
 @Model
 final class BonusPayment {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 所属任职记录的业务标识。
     var employmentID: String = ""
     // Older salary stages never recorded which year a payment belonged to.
     // They remain visible for review, but do not enter totals until dated.
+    /// 所属年份，空值表示旧记录尚未确认年份。
     var year: Int?
+    /// 所属月份。
     var month: Int = 12
+    /// 金额，单位为分。
     var amountCents: Int64?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
     init() {}
 }
@@ -96,13 +141,21 @@ enum BonusRules {
 
 @Model
 final class ContributionStage {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 所属任职记录的业务标识。
     var employmentID: String = ""
+    /// 生效月份，以月初日期表示。
     var effectiveMonth: Date = Date()
+    /// 养老保险缴纳基数，单位为分。
     var pensionBaseCents: Int64?
+    /// 个人养老保险缴纳比例，单位为基点，100 基点等于 1%。
     var pensionBasisPoints: Int64?
+    /// 公积金缴纳基数，单位为分。
     var housingBaseCents: Int64?
+    /// 个人公积金缴纳比例，单位为基点，100 基点等于 1%。
     var housingBasisPoints: Int64?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
     init() {}
 }
@@ -110,7 +163,9 @@ final class ContributionStage {
 enum ContributionKind: Hashable {
     case pension, housing
 
+    /// 展示标题。
     var title: String { self == .pension ? "养老保险" : "住房公积金" }
+    /// 简短展示名称。
     var shortTitle: String { self == .pension ? "养老金" : "公积金" }
     func base(_ record: ContributionStage) -> Int64? { self == .pension ? record.pensionBaseCents : record.housingBaseCents }
     func rate(_ record: ContributionStage) -> Int64? { self == .pension ? record.pensionBasisPoints : record.housingBasisPoints }
@@ -118,7 +173,9 @@ enum ContributionKind: Hashable {
 }
 
 struct ContributionEstimate {
+    /// 金额，单位为分。
     let amountCents: Int64
+    /// 纳入统计的月份数量。
     let coveredMonths: Int
 }
 
@@ -272,8 +329,11 @@ enum CareerRules {
     }
 
     struct WorkSummary {
+        /// 天数。
         let days: Int
+        /// 缺少法定节假日资料的年份集合。
         let missingHolidayYears: Bool
+        /// 平均每日工资，单位为分。
         let averageDailyCents: Int64?
     }
 

@@ -139,14 +139,12 @@ struct EquityGrantEditor: View {
     private func save() {
         guard validation == nil, let draft, var grants = holding.grants else { return }
         if let index = grants.firstIndex(where: { $0.id == draft.id }) { grants[index] = draft } else { grants.append(draft) }
-        do {
-            holding.grantData = try JSONEncoder().encode(grants)
-            guard StockRules.canSave(holding, on: Date()) else {
-                context.rollback(); error = "修改后持仓不足以覆盖已记录的卖出／转出，或金额超出范围。"; return
-            }
-            holding.modifiedAt = Date()
-            if let message = context.saveOrRollback() { error = message } else { dismiss() }
-        } catch { context.rollback(); self.error = error.localizedDescription }
+        holding.applyGrants(grants)
+        guard StockRules.canSave(holding, on: Date()) else {
+            context.rollback(); error = "修改后持仓不足以覆盖已记录的卖出／转出，或金额超出范围。"; return
+        }
+        holding.modifiedAt = Date()
+        if let message = context.saveOrRollback() { error = message } else { dismiss() }
     }
 }
 
@@ -265,10 +263,9 @@ struct EquityPriceEditor: View {
                         if holdings.contains(where: { $0.employmentID == job.id }) {
                             error = "该公司已有股票激励，请从列表进入并添加授予。草稿尚未保存。"; return
                         }
-                        guard let firstGrant, EquityRules.error(firstGrant) == nil,
-                              let data = try? JSONEncoder().encode([firstGrant]) else { return }
+                        guard let firstGrant, EquityRules.error(firstGrant) == nil else { return }
                         item.priceIsConfigured = false
-                        item.grantData = data
+                        item.applyGrants([firstGrant])
                         item.id = "company-stock-\(job.id)"; item.employmentID = job.id; item.name = job.displayName
                         context.insert(item)
                     }
@@ -319,13 +316,11 @@ struct EquityPositionEditor: View {
                         guard let q = ProfileRules.scaledValue(reduction), q > 0 else { error = "请填写有效的减少数量。"; return }
                         changes.append(EquityDisposal(date: ProfileRules.calendar.startOfDay(for: Date()), shares: q))
                     }
-                    do {
-                        holding.initialSharesHundredths = initial
-                        holding.disposalData = try JSONEncoder().encode(changes)
-                        guard StockRules.canSave(holding, on: Date()) else { context.rollback(); error = "减少数量不能超过已归属持仓。"; return }
-                        holding.modifiedAt = Date()
-                        if let message = context.saveOrRollback() { error = message } else { dismiss() }
-                    } catch { context.rollback(); self.error = error.localizedDescription }
+                    holding.initialSharesHundredths = initial
+                    holding.applyDisposals(changes)
+                    guard StockRules.canSave(holding, on: Date()) else { context.rollback(); error = "减少数量不能超过已归属持仓。"; return }
+                    holding.modifiedAt = Date()
+                    if let message = context.saveOrRollback() { error = message } else { dismiss() }
                 }.disabled(ProfileRules.scaledValue(initial) == nil) }
             }.saveErrorAlert($error)
         }

@@ -128,12 +128,8 @@ struct SeveranceEditor: View {
         guard validationError == nil else { return }
         var settings = SeveranceSettings(plan: plan)
         settings.tripleAverageSalaryCents = ProfileRules.scaledValue(cap)
-        do {
-            job.severanceData = try JSONEncoder().encode(settings)
-            job.modifiedAt = Date()
-            if let message = context.saveOrRollback() { errorMessage = message } else { dismiss() }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        job.applySeverance(settings)
+        job.modifiedAt = Date()
+        if let message = context.saveOrRollback() { errorMessage = message } else { dismiss() }
     }
 }

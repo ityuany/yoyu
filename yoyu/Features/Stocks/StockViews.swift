@@ -228,7 +228,7 @@ struct StockEditor: View {
         item.yuanRate = rate
         item.baselineDate = ProfileRules.calendar.startOfDay(for: baseline)
         item.initialSharesHundredths = quantity
-        item.vestingData = try? JSONEncoder().encode(entries)
+        item.applyVestings(entries)
         return item
     }
     private var preview: StockRules.Value? {
@@ -323,7 +323,7 @@ struct StockEditor: View {
         item.yuanRate = draft.yuanRate
         item.baselineDate = draft.baselineDate
         item.initialSharesHundredths = draft.initialSharesHundredths
-        item.vestingData = draft.vestingData
+        item.applyGrants(draft.grants ?? [])
         item.modifiedAt = Date()
         legacy?.stockMigrated = true
         if let message = context.saveOrRollback() { error = message } else { dismiss() }

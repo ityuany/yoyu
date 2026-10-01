@@ -3,100 +3,312 @@ import SwiftData
 
 enum LiabilityKind: String, Codable, CaseIterable, Identifiable {
     case mortgage, creditCard
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String { self == .mortgage ? "房贷" : "信用卡" }
+    /// 界面图标名称。
     var icon: String { self == .mortgage ? "house" : "creditcard" }
 }
 
 enum MortgageMethod: String, Codable, CaseIterable, Identifiable {
     case annuity, equalPrincipal
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String { self == .annuity ? "等额本息" : "等额本金" }
 }
 
 struct MortgagePart: Codable, Identifiable {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id = UUID()
+    /// 名称。
     var name = "商业贷款"
+    /// 本金，单位为分。
     var principal: Int64 = 0
+    /// 贷款年利率，以百分数表示。
     var annualPercent: Double = 0
+    /// 还款期数，单位为月。
     var months: Int = 240
+    /// 房贷还款方式。
     var method: MortgageMethod = .annuity
+    /// 下一期还款日期。
     var nextDate = Date()
+    /// 每月扣款或还款日，短月份按月末处理。
     var dueDay = 1
     /// Optional bank-confirmed monthly principal for equal-principal loans.
+    /// 银行确认的每期本金，单位为分，空值表示按规则计算。
     var fixedPrincipal: Int64?
 }
 
 enum InstallmentRateMode: String, Codable, CaseIterable, Identifiable {
     case annual, monthlyFee
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String { self == .annual ? "年利率" : "每期手续费率" }
 }
 
 struct FixedInstallmentTerms: Codable {
+    /// 分期费率，以百分数表示。
     var rate: Double = 0
+    /// 预测就业模式的原始枚举值。
     var mode: InstallmentRateMode = .annual
+    /// 用户确认的已还期数。
     var paid: Int = 0
     /// nil preserves manually confirmed progress from earlier app versions.
+    /// 是否自动推进已还期数，空值保留旧版手动进度语义。
     var automatic: Bool?
 }
 
 struct CardInstallment: Codable, Identifiable {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id = UUID()
+    /// 名称。
     var name = ""
+    /// 本金，单位为分。
     var principal: Int64 = 0
+    /// 还款期数，单位为月。
     var months: Int = 12
+    /// 下一期还款日期。
     var nextDate = Date()
+    /// 每月扣款或还款日，短月份按月末处理。
     var dueDay = 1
+    /// 银行确认的每期本金，单位为分，空值表示按规则计算。
     var fixedPrincipal: Int64?
+    /// 每期手续费，单位为分。
     var monthlyFee: Int64 = 0
+    /// 首期手续费，单位为分，空值表示使用常规每期费用。
     var firstFee: Int64?
+    /// 末期手续费，单位为分，空值表示使用常规每期费用。
     var lastFee: Int64?
+    /// 固定分期费率与进度配置。
     var terms: FixedInstallmentTerms?
 }
 
 struct LiabilitySnapshot: Codable {
+    /// 负债余额登记日期。
     var balanceDate = Date()
+    /// 房贷组成部分。
     var mortgages: [MortgagePart] = []
     /// Bank's total outstanding, including all installment principal and posted charges.
+    /// 信用卡总欠款，包含分期本金及已入账费用，单位为分。
     var cardTotal: Int64 = 0
+    /// 本期应还账单金额，单位为分，空值表示尚未确认。
     var billDue: Int64?
+    /// 本期账单到期日期。
     var billDate = Date()
+    /// 分期明细。
     var installments: [CardInstallment] = []
+    /// 用户备注。
     var note = ""
+    /// 是否已确认仅计算固定分期，空值表示旧资料未确认。
     var fixedInstallmentsOnly: Bool?
+    /// 信用卡每月还款日。
     var cardRepaymentDay: Int?
 }
 
 @Model final class LiabilityAccount {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 名称。
     var name: String = ""
+    /// 负债类别的原始枚举值。
     var kindRaw: String = "mortgage"
+    /// 旧版负债资料 JSON，仅用于兼容读取和迁移。
     var snapshotData: Data?
     // Legacy persisted field retained for SwiftData / CloudKit compatibility; no longer read or written.
+    /// 旧历史字段，仅为数据库及云端结构兼容保留，当前不读写。
     var historyData: Data?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
+    /// 负债资料是否已保存为字段及关联模型。
+    var hasStructuredSnapshot: Bool = false
+    /// 预期房贷组成数量，防止云端关联未到齐时少算负债。
+    var mortgageCount: Int = 0
+    /// 预期信用卡分期数量，防止云端关联未到齐时少算负债。
+    var installmentCount: Int = 0
+    /// 负债余额登记日期。
+    var balanceDate: Date = Date()
+    /// 信用卡总欠款，包含分期本金及已入账费用，单位为分。
+    var cardTotal: Int64 = 0
+    /// 本期应还账单金额，单位为分，空值表示尚未确认。
+    var billDue: Int64?
+    /// 本期账单到期日期。
+    var billDate: Date = Date()
+    /// 用户备注。
+    var note: String = ""
+    /// 是否已确认仅计算固定分期，空值表示旧资料未确认。
+    var fixedInstallmentsOnly: Bool?
+    /// 信用卡每月还款日。
+    var cardRepaymentDay: Int?
+    /// 该负债账户的房贷组成部分；删除账户时级联删除。
+    @Relationship(deleteRule: .cascade, inverse: \MortgagePartRecord.account)
+    var mortgageRecords: [MortgagePartRecord]?
+    /// 该记录拥有的分期明细；删除所属记录时级联删除。
+    @Relationship(deleteRule: .cascade, inverse: \CardInstallmentRecord.account)
+    var installmentRecords: [CardInstallmentRecord]?
     init() {}
+    /// 负债类别。
     var kind: LiabilityKind? { LiabilityKind(rawValue: kindRaw) }
+    /// 负债资料的值类型快照。
     var snapshot: LiabilitySnapshot? {
+        if hasStructuredSnapshot {
+            guard Set((mortgageRecords ?? []).map(\.id)).count == mortgageCount,
+                  Set((installmentRecords ?? []).map(\.id)).count == installmentCount else { return nil }
+            let installments = Dictionary(grouping: (installmentRecords ?? []), by: \.id).values.compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }.sorted { $0.position < $1.position }
+            guard installments.allSatisfy({ !$0.hasTerms || InstallmentRateMode(rawValue: $0.rateModeRaw) != nil }) else { return nil }
+            let mortgages = Dictionary(grouping: (mortgageRecords ?? []), by: \.id).values.compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }.sorted { $0.position < $1.position }
+            guard mortgages.allSatisfy({ MortgageMethod(rawValue: $0.methodRaw) != nil }) else { return nil }
+            return LiabilitySnapshot(balanceDate: balanceDate, mortgages: mortgages.map(\.value),
+                cardTotal: cardTotal, billDue: billDue, billDate: billDate, installments: installments.map(\.value),
+                note: note, fixedInstallmentsOnly: fixedInstallmentsOnly, cardRepaymentDay: cardRepaymentDay)
+        }
         guard let snapshotData else { return nil }
         return try? JSONDecoder().decode(LiabilitySnapshot.self, from: snapshotData)
     }
 }
 
+
+extension LiabilityAccount {
+    func apply(_ snapshot: LiabilitySnapshot, at date: Date = Date()) {
+        balanceDate = snapshot.balanceDate; cardTotal = snapshot.cardTotal
+        billDue = snapshot.billDue; billDate = snapshot.billDate; note = snapshot.note
+        fixedInstallmentsOnly = snapshot.fixedInstallmentsOnly; cardRepaymentDay = snapshot.cardRepaymentDay
+        let oldMortgages = mortgageRecords ?? []
+        let mortgages = snapshot.mortgages.enumerated().map { position, value in
+            let record = oldMortgages.filter { $0.id == value.id }.max { $0.modifiedAt < $1.modifiedAt } ?? MortgagePartRecord()
+            record.apply(value); record.modifiedAt = date; record.position = position
+            return record
+        }
+        mortgageRecords = mortgages
+        for record in oldMortgages where !mortgages.contains(where: { $0 === record }) { modelContext?.delete(record) }
+        let oldInstallments = installmentRecords ?? []
+        let installments = snapshot.installments.enumerated().map { position, value in
+            let record = oldInstallments.filter { $0.id == value.id }.max { $0.modifiedAt < $1.modifiedAt } ?? CardInstallmentRecord()
+            record.apply(value); record.modifiedAt = date; record.position = position
+            return record
+        }
+        installmentRecords = installments
+        for record in oldInstallments where !installments.contains(where: { $0 === record }) { modelContext?.delete(record) }
+        mortgageCount = snapshot.mortgages.count
+        installmentCount = snapshot.installments.count
+        hasStructuredSnapshot = true
+    }
+}
+
+@Model final class MortgagePartRecord {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
+    var id: UUID = UUID()
+    /// 子记录最近修改时间，用于归并跨设备迁移产生的同源副本。
+    var modifiedAt: Date = Date()
+    /// 名称。
+    var name: String = "商业贷款"
+    /// 本金，单位为分。
+    var principal: Int64 = 0
+    /// 贷款年利率，以百分数表示。
+    var annualPercent: Double = 0
+    /// 还款期数，单位为月。
+    var months: Int = 240
+    /// 房贷还款方式的原始枚举值。
+    var methodRaw: String = "annuity"
+    /// 下一期还款日期。
+    var nextDate: Date = Date()
+    /// 每月扣款或还款日，短月份按月末处理。
+    var dueDay: Int = 1
+    /// 银行确认的每期本金，单位为分，空值表示按规则计算。
+    var fixedPrincipal: Int64?
+    /// 原始排列顺序，关联集合读取时据此还原顺序。
+    var position: Int = 0
+    /// 所属负债账户，作为账户关联的反向关系。
+    var account: LiabilityAccount?
+    init() {}
+    /// 用于计算和编辑的值类型快照。
+    var value: MortgagePart { MortgagePart(id: id, name: name, principal: principal, annualPercent: annualPercent,
+        months: months, method: MortgageMethod(rawValue: methodRaw)!, nextDate: nextDate, dueDay: dueDay, fixedPrincipal: fixedPrincipal) }
+    func apply(_ value: MortgagePart) {
+        id = value.id; name = value.name; principal = value.principal; annualPercent = value.annualPercent
+        months = value.months; methodRaw = value.method.rawValue; nextDate = value.nextDate
+        dueDay = value.dueDay; fixedPrincipal = value.fixedPrincipal
+    }
+}
+
+@Model final class CardInstallmentRecord {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
+    var id: UUID = UUID()
+    /// 子记录最近修改时间，用于归并跨设备迁移产生的同源副本。
+    var modifiedAt: Date = Date()
+    /// 名称。
+    var name: String = ""
+    /// 本金，单位为分。
+    var principal: Int64 = 0
+    /// 还款期数，单位为月。
+    var months: Int = 12
+    /// 下一期还款日期。
+    var nextDate: Date = Date()
+    /// 每月扣款或还款日，短月份按月末处理。
+    var dueDay: Int = 1
+    /// 银行确认的每期本金，单位为分，空值表示按规则计算。
+    var fixedPrincipal: Int64?
+    /// 每期手续费，单位为分。
+    var monthlyFee: Int64 = 0
+    /// 首期手续费，单位为分，空值表示使用常规每期费用。
+    var firstFee: Int64?
+    /// 末期手续费，单位为分，空值表示使用常规每期费用。
+    var lastFee: Int64?
+    /// 是否具有固定分期费率及进度配置。
+    var hasTerms: Bool = false
+    /// 分期费率，以百分数表示。
+    var rate: Double = 0
+    /// 分期费率口径的原始枚举值。
+    var rateModeRaw: String = "annual"
+    /// 用户确认的已还期数。
+    var paid: Int = 0
+    /// 是否自动推进已还期数，空值保留旧版手动进度语义。
+    var automatic: Bool?
+    /// 原始排列顺序，关联集合读取时据此还原顺序。
+    var position: Int = 0
+    /// 所属负债账户，作为账户关联的反向关系。
+    var account: LiabilityAccount?
+    init() {}
+    /// 用于计算和编辑的值类型快照。
+    var value: CardInstallment { CardInstallment(id: id, name: name, principal: principal, months: months,
+        nextDate: nextDate, dueDay: dueDay, fixedPrincipal: fixedPrincipal, monthlyFee: monthlyFee,
+        firstFee: firstFee, lastFee: lastFee, terms: hasTerms ? FixedInstallmentTerms(rate: rate,
+            mode: InstallmentRateMode(rawValue: rateModeRaw)!, paid: paid, automatic: automatic) : nil) }
+    func apply(_ value: CardInstallment) {
+        id = value.id; name = value.name; principal = value.principal; months = value.months
+        nextDate = value.nextDate; dueDay = value.dueDay; fixedPrincipal = value.fixedPrincipal
+        monthlyFee = value.monthlyFee; firstFee = value.firstFee; lastFee = value.lastFee
+        hasTerms = value.terms != nil; rate = value.terms?.rate ?? 0
+        rateModeRaw = value.terms?.mode.rawValue ?? "annual"; paid = value.terms?.paid ?? 0
+        automatic = value.terms?.automatic
+    }
+}
+
 struct DebtPayment: Identifiable {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     let id: String
+    /// 原始子记录标识。
     let sourceID: UUID?
+    /// 名称。
     let name: String
+    /// 日期。
     let date: Date
+    /// 本金，单位为分。
     let principal: Int64
+    /// 利息金额，单位为分。
     let interest: Int64
+    /// 剩余金额。
     let remaining: Int64?
+    /// 合计值。
     var total: Int64 { principal + interest }
 }
 
 enum LiabilityRules {
+    /// 允许登记的最大金额，单位为分。
     static let maximum = ProfileRules.maximumMoneyCents
+    /// 业务日期计算采用的日历与时区。
     static var calendar: Calendar { ProfileRules.calendar }
     static func accounts(_ accounts: [LiabilityAccount]) -> [LiabilityAccount] {
         Dictionary(grouping: accounts, by: \.id).values.compactMap { $0.max { $0.modifiedAt < $1.modifiedAt } }

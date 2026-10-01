@@ -3,14 +3,19 @@ import Foundation
 enum InvestmentInterestMode: String, CaseIterable, Identifiable {
     case simple = "单利"
     case compound = "复利"
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: Self { self }
 }
 
 struct InvestmentProjection {
+    /// 本金金额，单位为分。
     let principalCents: Int64
+    /// 合计金额，单位为分。
     let totalCents: Int64
+    /// 累计收益金额，单位为分。
     var earningsCents: Int64 { totalCents - principalCents }
 
+    /// 可选择的收益率预设。
     static let presets = [3, 6, 12, 36, 60, 96, 120]
     static func duration(_ months: Int) -> String {
         months % 12 == 0 ? "\(months / 12) 年" : "\(months) 个月"

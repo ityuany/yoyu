@@ -8,21 +8,34 @@ struct HousingShortfallMonth: Identifiable {
         case rate = "缺少个人缴存比例"
     }
 
+    /// 所属任职记录的业务标识。
     let employmentID: String
+    /// 所属月份。
     let month: Date
+    /// 工资金额，单位为分。
     let wageCents: Int64?
+    /// 应采用的缴纳基数，单位为分。
     let expectedBaseCents: Int64?
+    /// 实际登记的缴纳基数，单位为分。
     let recordedBaseCents: Int64?
+    /// 比例，单位为基点。
     let rateBasisPoints: Int64?
+    /// 已配置缴纳金额，单位为分。
     let configuredPaymentCents: Int64?
+    /// 上下限资料的依据状态。
     let limitEvidence: LimitEvidence?
+    /// 个人应补差额，单位为分。
     let personalShortfallCents: Int64?
+    /// 缺失信息。
     let missing: Missing?
 
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { "\(employmentID)-\(ProfileRules.dateKey(month))" }
+    /// 应缴金额，单位为分。
     var expectedPaymentCents: Int64? {
         ProfileRules.monthlyContribution(salaryCents: expectedBaseCents, rateBasisPoints: rateBasisPoints)
     }
+    /// 比较结果。
     var comparison: Comparison? {
         guard missing == nil, let expectedBaseCents, let recordedBaseCents else { return nil }
         if recordedBaseCents < expectedBaseCents { return .below }
@@ -32,6 +45,7 @@ struct HousingShortfallMonth: Identifiable {
 
     enum Comparison {
         case matches, above, below
+        /// 展示标题。
         var title: String {
             switch self {
             case .matches: "符合预期"
@@ -43,13 +57,21 @@ struct HousingShortfallMonth: Identifiable {
 }
 
 struct HousingShortfallCompany: Identifiable {
+    /// 本次计算使用的任职记录。
     let job: Employment
+    /// 还款期数，单位为月。
     let months: [HousingShortfallMonth]
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { job.id }
+    /// 存在缴纳缺口的月份数量。
     var shortfallMonths: [HousingShortfallMonth] { months.filter { ($0.personalShortfallCents ?? 0) > 0 } }
+    /// 可比较记录数量。
     var comparableCount: Int { months.filter { $0.personalShortfallCents != nil }.count }
+    /// 缺失记录数量。
     var missingCount: Int { months.count - comparableCount }
+    /// 存在正缺口的记录数量。
     var positiveCount: Int { shortfallMonths.count }
+    /// 个人应补差额，单位为分。
     var personalShortfallCents: Int64 { months.compactMap(\.personalShortfallCents).reduce(0, +) }
 }
 

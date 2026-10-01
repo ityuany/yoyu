@@ -4,16 +4,27 @@ import Foundation
 enum TodayIncome {
     enum Status { case beforeWork, working, finished, rest }
     struct Snapshot {
+        /// 班次归属日期。
         let day: Date
+        /// 开始日期。
         let start: Date
+        /// 结束日期。
         let end: Date
+        /// 当前工作状态。
         let status: Status
+        /// 当日应计工资，单位为分。
         let dailyCents: Int64
+        /// 当前班次已累计工资，单位为分。
         let earnedCents: Int64
+        /// 本月累计工资，单位为分，空值表示资料不完整。
         let monthCents: Int64?
+        /// 当前班次进度，范围为 0 至 1。
         let progress: Double
+        /// 已完成班次的工作日数量。
         let completedWorkdays: Int
+        /// 当月应工作日数量。
         let monthlyWorkdays: Int
+        /// 当前年份是否缺少内置节假日资料。
         let missingHolidayYear: Bool
     }
 
@@ -92,8 +103,11 @@ enum TodayIncome {
     }
 
     struct NextShift {
+        /// 开始日期。
         let start: Date
+        /// 当日应计工资，单位为分。
         let dailyCents: Int64?
+        /// 当前年份是否缺少内置节假日资料。
         let missingHolidayYear: Bool
     }
 

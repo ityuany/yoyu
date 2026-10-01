@@ -3,20 +3,30 @@ import SwiftData
 
 nonisolated enum RunwayMode: String, Codable, CaseIterable, Identifiable {
     case employed, temporary, indefinite
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { rawValue }
+    /// 展示标题。
     var title: String {
         switch self { case .employed: "持续在职"; case .temporary: "阶段失业"; case .indefinite: "不再就业" }
     }
 }
 
 nonisolated struct RunwayPlan: Codable, Equatable {
+    /// 预测就业模式的原始枚举值。
     var mode: RunwayMode = .employed
+    /// 工作中断开始日期。
     var lossDate: Date?
+    /// 恢复就业日期。
     var returnDate: Date?
+    /// 复工后税前月薪，单位为分。
     var salary: Int64?
+    /// 复工后每月发薪日。
     var payday: Int = 10
+    /// 每月灵活收入，单位为分。
     var flexible: Int64 = 0
+    /// 每月灵活收入到账日。
     var flexibleDay: Int = 10
+    /// 方案内容生成的计算缓存标识，不属于持久化字段。
     var cacheKey: String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -25,12 +35,43 @@ nonisolated struct RunwayPlan: Codable, Equatable {
 }
 
 @Model final class RunwaySettings {
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String = UUID().uuidString
+    /// 预测就业模式的原始枚举值。
     var mode: String = "employed"
+    /// 旧版预测配置 JSON，仅用于兼容读取和迁移。
     var data: Data?
+    /// 最近修改时间，用于归并同一业务记录的副本。
     var modifiedAt: Date = Date()
+    /// 配置是否已保存为独立字段。
+    var hasStructuredPlan: Bool = false
+    /// 工作中断开始日期。
+    var lossDate: Date?
+    /// 恢复就业日期。
+    var returnDate: Date?
+    /// 复工后税前月薪，单位为分。
+    var salary: Int64?
+    /// 复工后每月发薪日。
+    var payday: Int = 10
+    /// 每月灵活收入，单位为分。
+    var flexible: Int64 = 0
+    /// 每月灵活收入到账日。
+    var flexibleDay: Int = 10
     init() {}
-    var plan: RunwayPlan? { data.flatMap { try? JSONDecoder().decode(RunwayPlan.self, from: $0) } }
+    /// 方案或配置。
+    var plan: RunwayPlan? {
+        if hasStructuredPlan {
+            guard let mode = RunwayMode(rawValue: mode) else { return nil }
+            return RunwayPlan(mode: mode, lossDate: lossDate, returnDate: returnDate, salary: salary,
+                payday: payday, flexible: flexible, flexibleDay: flexibleDay)
+        }
+        return data.flatMap { try? JSONDecoder().decode(RunwayPlan.self, from: $0) }
+    }
+    func apply(_ plan: RunwayPlan) {
+        mode = plan.mode.rawValue; lossDate = plan.lossDate; returnDate = plan.returnDate
+        salary = plan.salary; payday = plan.payday; flexible = plan.flexible; flexibleDay = plan.flexibleDay
+        hasStructuredPlan = true
+    }
 }
 
 enum RunwayStore {
@@ -43,39 +84,57 @@ enum RunwayStore {
         records.sorted { $0.modifiedAt == $1.modifiedAt ? $0.id > $1.id : $0.modifiedAt > $1.modifiedAt }.first?.plan
     }
     @MainActor static func save(_ plan: RunwayPlan, records: [RunwaySettings], context: ModelContext) throws {
-        let data = try JSONEncoder().encode(plan)
         let record = record(records, mode: plan.mode) ?? RunwaySettings()
         if record.modelContext == nil { context.insert(record) }
-        record.mode = plan.mode.rawValue
-        record.data = data
+        record.apply(plan)
         record.modifiedAt = Date()
         do { try context.save() } catch { context.rollback(); throw error }
     }
 }
 
 nonisolated struct RunwayPoint: Identifiable, Sendable {
+    /// 日期。
     var date: Date
+    /// 当前现金，单位为分。
     var cash: Int64
+    /// 股票估值，单位为分。
     var stock: Int64
+    /// 理财计算状态。
     var investment: Int64
+    /// 收入金额，单位为分。
     var income: Int64 = 0
+    /// 收益金额。
     var gain: Int64 = 0
+    /// 支出金额，单位为分。
     var expense: Int64 = 0
+    /// 还款金额，单位为分。
     var repayment: Int64 = 0
+    /// 已赎回金额。
     var redeemed: Int64 = 0
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: Date { date }
+    /// 合计值。
     var total: Int64 { cash + stock + investment }
 }
 
 nonisolated struct RunwayResult: Sendable {
+    /// 预测起点日期。
     var origin: Date
+    /// 结束日期，空值表示尚未结束。
     var end: Date
+    /// 失败信息。
     var failure: Date?
+    /// 无法计算的原因。
     var issue: String?
+    /// 是否能维持至目标日期。
     var sustainable = false
+    /// 期初金额。
     var opening: RunwayPoint?
+    /// 预计补偿金额，单位为分。
     var compensation: Int64 = 0
+    /// 图表数据点。
     var points: [RunwayPoint] = []
+    /// 持续时长。
     var duration: String {
         let c = ProfileRules.calendar.dateComponents([.month, .day], from: origin, to: max(origin, failure ?? end))
         return "\(c.month ?? 0) 个月零 \(c.day ?? 0) 天"
@@ -86,11 +145,17 @@ nonisolated struct RunwayResult: Sendable {
 /// Redemptions consume earnings first, then capital. Compounding remains anchored
 /// to the original registration's 365-day anniversaries, matching Wealth.
 nonisolated struct RunwayInvestment: Sendable {
+    /// 当前本金，单位为分。
     var capital: Decimal
+    /// 累计收益。
     var earnings: Decimal
+    /// 分期费率，以百分数表示。
     var rate: Decimal
+    /// 是否采用复利。
     var compound: Bool
+    /// 登记日期。
     var registration: Date
+    /// 用于计算和编辑的值类型快照。
     var value: Decimal { max(0, capital + earnings) }
 
     @MainActor init?(profile: UserProfile?, on today: Date) {
@@ -132,6 +197,7 @@ nonisolated struct RunwayInvestment: Sendable {
     }
 }
 
+    /// 业务日期计算采用的日历与时区。
 @MainActor enum RunwayEngine {
     nonisolated static var calendar: Calendar { ProfileRules.calendar }
     nonisolated static func day(_ date: Date) -> Date { calendar.startOfDay(for: date) }
@@ -155,7 +221,7 @@ nonisolated struct RunwayInvestment: Sendable {
     static func compensation(plan: RunwayPlan, jobs: [Employment], stages: [SalaryStage], bonuses: [BonusPayment] = [], today: Date) -> Int64? {
         guard plan.mode != .employed else { return 0 }
         guard let date = plan.lossDate, let job = CareerRules.current(jobs, on: today),
-              job.severanceData != nil, let settings = SeveranceRules.settings(for: job)?.automatic else { return nil }
+              (job.hasStructuredSeverance || job.severanceData != nil), let settings = SeveranceRules.settings(for: job)?.automatic else { return nil }
         return SeveranceRules.estimate(settings: settings, job: job,
             salaryCents: SeveranceRules.averageSalary(stages: stages, bonuses: bonuses, job: job, on: date),
             noticeSalaryCents: SeveranceRules.previousMonthSalary(stages: stages, job: job, on: date), on: date)?.amountCents
@@ -228,7 +294,8 @@ nonisolated struct RunwayInvestment: Sendable {
         let records = ExpenseRules.records(expenses)
         let plans = records.compactMap(\.plan)
         guard plans.count == records.count, plans.allSatisfy({ ExpenseRules.error($0) == nil }) else { return invalid("部分预计支出资料不完整。") }
-        guard !plans.isEmpty || !liabilities.isEmpty else { return invalid("请先在财富中登记预计支出或还款安排。") }
+        let payablePlans = ExpectedExpenseRules.uncoveredExpenses(records, liabilities: liabilities).compactMap(\.plan)
+        guard !payablePlans.isEmpty || !liabilities.isEmpty else { return invalid("请先在财富中登记预计支出或还款安排。") }
         if ExpectedExpenseRules.missingBills(liabilities) { return invalid("请补全信用卡账单，或确认仅计算固定分期。") }
         let accounts = LiabilityRules.accounts(liabilities)
         for account in accounts {
@@ -265,7 +332,7 @@ nonisolated struct RunwayInvestment: Sendable {
             }
         }
         return await simulate(plan: plan, today: today, origin: origin, limit: limit, initialResult: result,
-            initialCash: initialCash, stock: stock, initialInvestment: investment, plans: plans, breaks: breaks,
+            initialCash: initialCash, stock: stock, initialInvestment: investment, plans: payablePlans, breaks: breaks,
             salaryRows: salaryRows, lastSalaryChange: lastSalaryChange, jobEnd: jobEnd,
             originalPayday: originalPayday, returnDay: returnDay,
             paymentMonths: paymentMonths, invalidPaymentMonths: invalidPaymentMonths)

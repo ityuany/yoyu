@@ -6,10 +6,9 @@ import SwiftData
         if let error = ExpenseRules.error(plan) { throw ExpenseSaveError.invalid(error) }
         var clean = plan
         clean.name = plan.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let data = try JSONEncoder().encode(clean)
         let item = record ?? RecurringExpense()
         if record == nil { context.insert(item) }
-        item.planData = data
+        item.apply(clean)
         item.modifiedAt = Date()
         do { try context.save() } catch { context.rollback(); throw error }
     }

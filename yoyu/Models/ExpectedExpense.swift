@@ -2,6 +2,17 @@ import Foundation
 
 /// A read-only aggregation of existing plans. Never creates another liability or payment.
 enum ExpectedExpenseRules {
+    static func isCovered(_ record: RecurringExpense, liabilities: [LiabilityAccount]) -> Bool {
+        guard let id = record.plan?.coveredByLiabilityID else { return false }
+        return LiabilityRules.accounts(liabilities).contains { $0.id == id }
+    }
+    static func uncoveredExpenses(_ expenses: [RecurringExpense], liabilities: [LiabilityAccount]) -> [RecurringExpense] {
+        let activeIDs = Set(LiabilityRules.accounts(liabilities).map(\.id))
+        return ExpenseRules.records(expenses).filter { record in
+            guard let id = record.plan?.coveredByLiabilityID else { return true }
+            return !activeIDs.contains(id)
+        }
+    }
     static func repayment(_ account: LiabilityAccount, in month: Date, from lowerBound: Date? = nil, through upperBound: Date? = nil) -> Int64? {
         guard let snapshot = account.snapshot, let kind = account.kind,
               LiabilityRules.error(snapshot, kind: kind) == nil else { return nil }
@@ -16,7 +27,7 @@ enum ExpectedExpenseRules {
         return LiabilityRules.sum(payments.map(\.total))
     }
     static func total(expenses: [RecurringExpense], liabilities: [LiabilityAccount], in month: Date, workBreaks: [ExpenseWorkBreak] = []) -> Int64? {
-        guard let daily = ExpenseRules.total(expenses, in: month, workBreaks: workBreaks) else { return nil }
+        guard let daily = ExpenseRules.total(uncoveredExpenses(expenses, liabilities: liabilities), in: month, workBreaks: workBreaks) else { return nil }
         var amounts = [daily]
         for account in LiabilityRules.accounts(liabilities) {
             guard let amount = repayment(account, in: month) else { return nil }

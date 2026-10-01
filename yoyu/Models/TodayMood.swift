@@ -4,7 +4,9 @@ import Foundation
 /// Calendar labels are supplementary; they never change income calculations.
 struct TodayMood {
     enum Kind: Equatable { case work, weekend, rest, holiday, makeup }
+    /// 负债类别。
     let kind: Kind
+    /// 节假日名称。
     let holidayName: String?
 
     init(day: Date, isRest: Bool, followsHolidays: Bool) {
@@ -22,6 +24,7 @@ struct TodayMood {
         }
     }
 
+    /// 展示标签。
     var label: String {
         switch kind {
         case .work: holidayName.map { "\($0) · 按安排上班" } ?? "工作日"
@@ -32,6 +35,7 @@ struct TodayMood {
         }
     }
 
+    /// 非工作状态展示文字。
     var restTitle: String {
         switch holidayName {
         case "春节": "把时间留给团圆"
@@ -43,6 +47,7 @@ struct TodayMood {
         }
     }
 
+    /// 补充展示文字。
     var subtitle: String {
         switch kind {
         case .work: "每一份积累，都看得见。"

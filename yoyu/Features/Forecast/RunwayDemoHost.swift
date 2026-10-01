@@ -22,7 +22,7 @@ import SwiftData
         let job = Employment()
         job.name = "示例公司"
         job.start = ProfileRules.date(2020, 1, 1)
-        job.severanceData = try! JSONEncoder().encode(SeveranceSettings())
+        job.applySeverance(SeveranceSettings())
         let stage = SalaryStage()
         stage.employmentID = job.id
         stage.effectiveDate = job.start
@@ -32,7 +32,7 @@ import SwiftData
         expense.amount = 12_000_00
         expense.start = ProfileRules.date(2026, 1, 1)
         let record = RecurringExpense()
-        record.planData = try! JSONEncoder().encode(expense)
+        record.apply(expense)
         container.mainContext.insert(p)
         container.mainContext.insert(job)
         container.mainContext.insert(stage)

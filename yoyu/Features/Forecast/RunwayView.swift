@@ -15,12 +15,9 @@ struct RunwayView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.modelContext) private var context
     @State private var mode: RunwayMode = .employed
-    @State private var result: RunwayResult?
-    @State private var resultPlan: RunwayPlan?
-    @State private var updating = false
-    @State private var requestID = UUID()
-    private var shownResult: RunwayResult? { resultPlan?.mode == mode ? result : nil }
-    private var shownPlan: RunwayPlan { resultPlan ?? plan }
+    @State private var session = RunwaySession()
+    private var shownResult: RunwayResult? { session.result(for: input.revision) }
+    private var shownPlan: RunwayPlan { session.plan(for: input.revision) ?? plan }
     @State private var breakdown = false
     @State private var explaining = false
     @State private var compensation = false
@@ -38,26 +35,14 @@ struct RunwayView: View {
     @State private var assetScope: WealthEditScope = .investment
     private var profile: UserProfile? { profiles.max { $0.updatedAt(for: .wealth) < $1.updatedAt(for: .wealth) } }
     private var plan: RunwayPlan { RunwayStore.record(settings, mode: mode)?.plan ?? RunwayPlan(mode: mode) }
-    private var wealthKey: String {
-        guard let p = profile else { return "no-profile" }
-        let values: [String?] = [p.wealthUpdatedAt?.timeIntervalSinceReferenceDate.description,
-            p.cashCents?.description, p.stockCents?.description, p.stockSharesHundredths?.description,
-            p.stockPriceCents?.description, p.investmentCents?.description,
-            p.investmentAnnualReturnBasisPoints?.description, p.investmentInterestMode,
-            p.investmentRegistrationDate?.timeIntervalSinceReferenceDate.description]
-        return values.map { $0 ?? "nil" }.joined(separator: "/")
-    }
-    private var key: String {
-        [ProfileRules.dateKey(clock.now), mode.rawValue,
-         plan.cacheKey,
-         wealthKey,
-         profile?.birthYear.map(String.init) ?? "nil", profile?.birthMonth.map(String.init) ?? "nil",
-         profile?.gender ?? "nil", profile?.femaleRetirementAge.map(String.init) ?? "nil",
-         jobs.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), stages.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(),
-         stocks.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), expenses.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined(), liabilities.map { "\($0.id)\($0.modifiedAt.timeIntervalSinceReferenceDate)" }.sorted().joined()].joined(separator: "|")
+    private var input: RunwayInput {
+        RunwayInput(plan: plan, profile: profile, stocks: stocks, jobs: jobs,
+                    stages: stages, bonuses: bonuses, expenses: expenses,
+                    liabilities: liabilities, today: clock.now)
     }
     var body: some View {
-        NavigationStack {
+        let currentInput = input
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if isExample {
@@ -79,28 +64,17 @@ struct RunwayView: View {
             .toolbar {
                 if isExample { ToolbarItem(placement: .primaryAction) { ExampleCloseButton() } }
             }
-            .onAppear {
-                if !initialized { mode = RunwayStore.active(settings)?.mode ?? .employed; initialized = true }
-            }
-            .onChange(of: RunwayStore.active(settings)?.mode) { _, active in
-                if let active { mode = active; selection = nil }
-            }
-            .task(id: initialized ? key : "initializing") {
-                guard initialized else { return }
-                let request = UUID(), currentKey = key, currentPlan = plan
-                requestID = request
-                if let cached = navigation.runwayCache.result(for: currentKey) {
-                    result = cached; resultPlan = currentPlan; updating = false
-                    return
-                }
-                updating = true
-                defer { if requestID == request { updating = false } }
-                let next = await RunwayEngine.calculate(plan: currentPlan, profile: profile, stocks: stocks, jobs: jobs, stages: stages, bonuses: bonuses, expenses: expenses, liabilities: liabilities, today: clock.now)
-                guard !Task.isCancelled, requestID == request, key == currentKey else { return }
-                navigation.runwayCache.store(next, for: currentKey)
-                result = next; resultPlan = currentPlan
-            }
             .saveErrorAlert($saveError)
+        }
+        .onAppear {
+            if !initialized { mode = RunwayStore.active(settings)?.mode ?? .employed; initialized = true }
+        }
+        .onChange(of: RunwayStore.active(settings)?.mode) { _, active in
+            if let active { mode = active; selection = nil }
+        }
+        .task(id: initialized ? currentInput.revision : "initializing") {
+            guard initialized else { return }
+            await session.run(currentInput)
         }
     }
     private var cardBackground: LinearGradient {
@@ -128,7 +102,7 @@ struct RunwayView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 resultSummary
-                if updating { Label("正在按新设置更新…", systemImage: "arrow.trianglehead.2.clockwise.rotate.90").font(.caption).foregroundStyle(.secondary) }
+                if session.calculating(for: input.revision) { Label("正在计算预测…", systemImage: "arrow.trianglehead.2.clockwise.rotate.90").font(.caption).foregroundStyle(.secondary) }
                 if let r = shownResult {
                     if let issue = r.issue { missing(issue) }
                     else {

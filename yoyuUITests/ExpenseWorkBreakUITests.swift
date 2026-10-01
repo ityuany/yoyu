@@ -1,6 +1,23 @@
 import XCTest
 
 @MainActor final class ExpenseWorkBreakUITests: XCTestCase {
+    func testLinkedRepaymentIsExcludedFromDailyExpenses() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--expense-dedupe-ui-test"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["¥ 5,098.00"].waitForExistence(timeout: 15), app.debugDescription)
+        let duplicate = app.buttons.containing(.staticText, identifier: "房贷还款副本").firstMatch
+        XCTAssertTrue(duplicate.exists, app.debugDescription)
+        duplicate.tap()
+        XCTAssertTrue(app.staticTexts["已包含在负债还款中；预计支出汇总和生存时长预测只计负债还款。"].waitForExistence(timeout: 5))
+        app.buttons["编辑"].tap()
+        let relation = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "已包含在负债还款中")).firstMatch
+        if !relation.isHittable { app.swipeUp() }
+        XCTAssertTrue(relation.waitForExistence(timeout: 5), app.debugDescription)
+        capture(app, "负债还款关联入口")
+    }
+
     func testSaveCancelAndReopen() {
         continueAfterFailure = false
         let app = XCUIApplication()

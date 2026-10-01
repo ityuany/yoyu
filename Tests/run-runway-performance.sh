@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 work=$(mktemp -d /tmp/yoyu-runway-performance.XXXXXX)
 trap 'rm -rf "$work"' EXIT
-sources=(yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Severance,Liability,RecurringExpense,ExpectedExpense,Runway,RunwayCache}.swift)
+sources=(yoyu/Models/{ProfileRules,UserProfile,Career,EquityGrant,StockHolding,Severance,Liability,RecurringExpense,ExpectedExpense,Runway,RunwaySession}.swift)
 fixtures=(Tests/Fixtures/RunwayBaselineEngine.swift Tests/Fixtures/RunwayPerformanceFixture.swift)
 swiftc -Onone "${sources[@]}" Tests/RunwayTests.swift -o "$work/rules"
 "$work/rules"

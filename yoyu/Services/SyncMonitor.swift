@@ -184,7 +184,7 @@ final class AppStorageController {
 
     private func openStore(cloud: Bool) {
         do {
-            let schema = Schema([UserProfile.self, WorkdayOverride.self, Employment.self, SalaryStage.self, BonusPayment.self, ContributionStage.self, SocialInsuranceLimit.self, SocialInsuranceLimitSeedState.self, HousingFundLimit.self, HousingFundLimitSeedState.self, StockHolding.self, LiabilityAccount.self, RecurringExpense.self, RunwaySettings.self])
+            let schema = AppModelSchema.schema
             // Keep the existing default store location in both modes. Never copy or delete it.
             let configuration = ModelConfiguration(schema: schema, cloudKitDatabase: cloud ? .private(SyncMonitor.containerID) : .none)
             container = try ModelContainer(for: schema, configurations: [configuration])
@@ -200,8 +200,14 @@ final class AppStorageController {
                 do { try HousingFundLimitDefaults.importIfNeeded(context: ModelContext(container)) }
                 catch { sync.activityMessage = "公积金基数范围默认资料导入未完成：\(error.localizedDescription)" }
             }
+            var migrationIssue: String?
+            if let container {
+                do { try StructuredDataMigration.run(context: ModelContext(container)) }
+                catch { migrationIssue = "业务数据结构整理未完成：\(error.localizedDescription)" }
+            }
             sync.cloudEnabled = cloud
-            if !cloud && !sync.activityMessage.hasPrefix("养老保险基数整理未完成") { sync.activityMessage = "当前仅本地存储" }
+            if let migrationIssue { sync.activityMessage = migrationIssue }
+            else if !cloud && !sync.activityMessage.hasPrefix("养老保险基数整理未完成") { sync.activityMessage = "当前仅本地存储" }
         } catch {
             errorMessage = "本机数据未被删除。请重新启动应用后重试。\n\(error.localizedDescription)"
         }

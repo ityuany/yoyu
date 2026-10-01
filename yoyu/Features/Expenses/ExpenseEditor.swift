@@ -3,6 +3,7 @@ import SwiftData
 
 struct ExpenseEditor: View {
     var record: RecurringExpense?
+    @Query private var liabilities: [LiabilityAccount]
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @State private var draft: ExpensePlan
@@ -26,6 +27,10 @@ struct ExpenseEditor: View {
         return value
     }
     private var error: String? { ExpenseRules.error(plan) }
+    private var isCoveredByLiability: Bool {
+        guard let id = plan.coveredByLiabilityID else { return false }
+        return LiabilityRules.accounts(liabilities).contains { $0.id == id }
+    }
 
     var body: some View {
         NavigationStack {
@@ -91,9 +96,21 @@ struct ExpenseEditor: View {
                     }
                 }
                 Section("备注") { TextField("选填", text: $draft.note, axis: .vertical).lineLimit(2...4) }
+                if !LiabilityRules.accounts(liabilities).isEmpty {
+                    Section {
+                        Picker("已包含在负债还款中", selection: $draft.coveredByLiabilityID) {
+                            Text("否，单独计入").tag(String?.none)
+                            ForEach(LiabilityRules.accounts(liabilities)) { account in
+                                Text(account.name).tag(Optional(account.id))
+                            }
+                        }
+                    } footer: {
+                        Text("若这笔开支已经包含在所选负债的还款计划中，汇总和预测只计负债还款。删除该负债后，这笔开支会恢复单独计入。")
+                    }
+                }
                 if error == nil {
                     Section {
-                        LabeledContent("\(ExpenseRules.monthLabel(draft.start))预计", value: ProfileRules.money(ExpenseRules.amount(plan, in: draft.start)))
+                        LabeledContent("\(ExpenseRules.monthLabel(draft.start))预计", value: isCoveredByLiability ? "已计入负债" : ProfileRules.money(ExpenseRules.amount(plan, in: draft.start)))
                         Text("\(draft.frequency.title) \(ProfileRules.money(plan.amount)) · \(draft.estimated ? "预估" : "固定")")
                             .foregroundStyle(.secondary)
                         Text(ExpenseRules.period(plan)).font(.subheadline).foregroundStyle(.secondary)

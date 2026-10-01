@@ -108,10 +108,10 @@ import SwiftData
             draft.amount = 0
             do { try ExpenseStore.save(draft, record: record, context: context); preconditionFailure("invalid saved") }
             catch { precondition(record.plan!.amount == 99_00) }
-            let duplicate = RecurringExpense(); duplicate.id = id; duplicate.planData = record.planData
+            let duplicate = RecurringExpense(); duplicate.id = id; duplicate.apply(record.plan!)
             context.insert(duplicate); try context.save()
             precondition(ExpenseRules.total([record, duplicate], in: date(2025, 2, 1)) == 99_00)
-            duplicate.planData = Data([0]); duplicate.modifiedAt = Date().addingTimeInterval(1)
+            duplicate.hasStructuredPlan = false; duplicate.planData = Data([0]); duplicate.modifiedAt = Date().addingTimeInterval(1)
             precondition(ExpenseRules.total([record, duplicate], in: date(2025, 2, 1)) == nil)
             context.rollback()
         }

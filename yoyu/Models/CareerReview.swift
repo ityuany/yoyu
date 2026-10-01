@@ -2,29 +2,46 @@ import Foundation
 
 enum CareerReview {
     struct Tenure: Identifiable {
+        /// 记录标识。
         let id: String
+        /// 名称。
         let name: String
+        /// 开始日期。
         let start: Date
+        /// 结束日期。
         let end: Date // Exclusive end, including the last employment day.
+        /// 天数。
         var days: Int { ProfileRules.calendar.dateComponents([.day], from: start, to: end).day ?? 0 }
     }
     struct Pay: Identifiable {
+        /// 记录标识。
         let id: String
+        /// 所属任职记录标识。
         let jobID: String
+        /// 名称。
         let name: String
+        /// 开始日期。
         let start: Date
+        /// 结束日期。
         let end: Date
+        /// 金额，单位为分。
         let cents: Int64
+        /// 上一阶段金额，单位为分。
         let previousCents: Int64?
     }
     struct Summary {
+        /// 任职时间区间集合。
         let tenures: [Tenure]
+        /// 薪资时间区间集合。
         let pay: [Pay]
+        /// 累计任职天数。
         let totalDays: Int
+        /// 资料不完整的任职数量。
         let incompleteJobs: Int
 
         /// Compound annual growth of recorded monthly pay, including calendar gaps.
         /// End dates are exclusive; use the final covered day, not a future boundary.
+        /// 按记录的月薪估算的年化增长率。
         var annualizedSalaryGrowth: Double? {
             guard let firstDate = pay.map(\.start).min(),
                   let lastEnd = pay.map(\.end).max(),

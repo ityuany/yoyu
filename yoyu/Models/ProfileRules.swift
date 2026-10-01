@@ -30,6 +30,7 @@ enum ProfileRules {
         return NSDecimalNumber(decimal: rounded).int64Value
     }
 
+    /// 业务日期计算采用的日历与时区。
     nonisolated static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
@@ -151,8 +152,10 @@ enum ProfileRules {
 enum Weekday: Int, CaseIterable, Identifiable {
     case sunday = 1, monday, tuesday, wednesday, thursday, friday, saturday
 
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: Int { rawValue }
 
+    /// 名称。
     var name: String {
         switch self {
         case .sunday: "周日"
@@ -179,6 +182,7 @@ struct Workweek: Equatable {
     /// 默认周一至周五上班，对应二进制 `0b0111110`，即十进制 62。
     static let `default` = Workweek(mask: 62)
 
+    /// 工作周的位掩码。
     var mask: Int
 
     init(mask: Int) {
@@ -200,20 +204,31 @@ struct Workweek: Equatable {
 }
 
 struct Holiday: Identifiable {
+    /// 名称。
     let name: String
+    /// 所属月份。
     let month: Int
+    /// 统计起始日期。
     let firstDay: Int
+    /// 统计结束日期。
     let lastDay: Int
+    /// 是否为调休补班。
     let makeup: [(month: Int, day: Int)]
+    /// 业务记录标识，跨设备同步时用于识别同一记录。
     var id: String { name }
     /// 节假日包含起止两天，所以天数需要额外加 1。
+    /// 天数。
     var days: Int { lastDay - firstDay + 1 }
+    /// 时间范围展示文字。
     var rangeLabel: String { "\(month) 月 \(firstDay)—\(lastDay) 日" }
 }
 
 enum HolidaySchedule {
+    /// 默认资料的来源网址。
     static let sourceURL = URL(string: "https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm")!
+    /// 已内置节假日资料的年份。
     static let supportedYear = 2026
+    /// 内置节假日与调休安排。
     static let holidays: [Holiday] = [
         Holiday(name: "元旦", month: 1, firstDay: 1, lastDay: 3, makeup: [(1, 4)]),
         Holiday(name: "春节", month: 2, firstDay: 15, lastDay: 23, makeup: [(2, 14), (2, 28)]),
